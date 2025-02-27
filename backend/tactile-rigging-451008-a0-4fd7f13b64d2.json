@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "tactile-rigging-451008-a0",
+  "private_key_id": "4fd7f13b64d272dd974e4bb34f2e78239bcddc8c",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC8P1qoUOKVOy6j\nKzDmK0mURWKFhqHz8CaFoBVqdqoVaK3uzV68jN1QcGglkQcn3TqaEmGl2DMYV7cN\n0ozI4uiH+xaGgxb1ws62Nf70pIl2iQ+fOytc/HO07BJ4fmZl2duC0zx2qgv8qS1o\nu49IROQP9GpzQiy73LgZ1YUh7ybhVYFyvUeSoSmuZzyfTuxfqW+fgFLEFpwJ/StC\nV5RkuALRZ/rR22C1OO6OCwQeqZH99awjcyUYQMUv5fDSw36UdaPSOdaNUKVC4kGc\nY9/coMTG3OPH1ajFjvrmPL2dvGMid6AFQhY0Y6w9D9jAIF/rhwyQaZFCDZJfSIfS\nWBOi29A1AgMBAAECggEAI/vaSQVZIpyTACa/7KeGo5yVxh9jst0LiAx/O4AeaARA\nBz9jphgpL/ikt9WesAyWaKAt4UVQEw2lVLOULMxPFbs15ZWGXIkV+Xed2kbfbfSq\nM05criQlvAZKS5Uh3sNDtiDJ1IcRzoTKRNRhgbeFftVCSfDy2yBIYsvRbJip7nWU\nayH5YZ1DI1K6Mrc6DRd7cL2dlRp42waXISYI9MmAuLmbWMqIzwHolTjCC+xbhOqh\nw5xZiNmyM5k3hqyBLquQcq2jHGtbaN5DChm8jI3R1spBkALSv8o8wS5bJXE+SCA5\nJYI3330JxCXoMzh6DaRTZ/F9BwxBZKVBMfWMtr0CywKBgQD/Xwr5MlJ7n1Rs+HWF\n7Iswtq0yrBq7RlpFBpGBONPSxyxda+KsgCTnNvP9l6Ek6ap3t9Cz54obDiQeldXG\n6kbAD3HR6/Eh5hUPL8hbKlc1CH8ViNSaDDmRKJ8qMn/J0R6HHEg7CDuyXSxjnKcn\neRoBjbzzjwvQ4aQiQIGR4/8qqwKBgQC8tgEIKNqajUh2gUqIif6XWQhKbj01q/58\nbRm+eMoNEipI0dxZKHxeP23uJQ8ep3ldJHzUF4CPzjXJndyQrm25m89ZLd/4p7FG\nPSQ3K4/Rwbx79X3MRFKnRbNP4pw69i1PRdNMMcmu/yvHwT0YUhcH61RTtqN1o0+n\n6F13biDwnwKBgQC6wY8M3zhjIApmBu4rmunQHkhbnnGOM80gXcVbc2u14eMYDyYe\ncTiLvyyAcLtwe1Ina049wz7Eunq/w2QrrHlBTAo5MwuNdu4/xPoJcdWE+0m1PfP9\nFKOk/Mgp2/SIa16gAJbyVPsTXgBweMflnjLeoAFnPV2uzNV0FyiqwMqDMQKBgQCc\nEz+5OujKKI3FDVvSn6cED+vOe2x+hnjc+fLv2MDrnJmCTqeayeRKotVNwDLIHKVA\nxtvDIoj+5wMPdFOnCczQVTBhxpJV+oOg3xKj2pCBYGV+dGSN2/gsRnZuXLLwBQkm\nZk7C1u7CoGLaPFVGVyabMyQ0dHqu4doQuhsLmvb9awKBgBrztwE5Vd9lGyNOhcWf\nAgUifhxhnP4fbEPSZq4AZYZlvS8fLU/DYv7TPC1T+SVnjmxZJlkPAp9OIp8UwCNl\n5j6XlfDinj+wbx0SawHMp589WF0/+tPMuVpXEj3FzJ8ORXB6I/TmIIxeM3PUfQD2\nc52EjxIBp2FfxqCg7VWnWDKo\n-----END PRIVATE KEY-----\n",
+  "client_email": "unisale-storage-service@tactile-rigging-451008-a0.iam.gserviceaccount.com",
+  "client_id": "115151520860244467826",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/unisale-storage-service%40tactile-rigging-451008-a0.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
