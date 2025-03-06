@@ -55,14 +55,15 @@ const Signup = () => {
   
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen">
-      <h2 className="text-2xl font-bold">Signup</h2>
-      <button
-        onClick={handleMicrosoftSignup}
-        className="p-2 bg-blue-600 text-white rounded mt-4"
-      >
-        Signup with Microsoft
-      </button>
+    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <div className="bg-white p-8 rounded-lg shadow-lg w-96 text-center">
+        <h2 className="text-2xl font-bold mb-4 text-gray-800">Signup for UniSale</h2>
+        <button 
+          onClick={handleMicrosoftSignup}
+          className="w-full py-3 bg-green-600 text-white rounded-md shadow-md hover:bg-green-700 transition">
+          Signup with Microsoft
+        </button>
+      </div>
     </div>
   );
 };

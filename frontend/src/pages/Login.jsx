@@ -27,14 +27,15 @@ const Login = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen">
-      <h2 className="text-2xl font-bold">Login</h2>
-      <button
-        onClick={handleMicrosoftLogin}
-        className="p-2 bg-blue-600 text-white rounded mt-4"
-      >
-        Login with Microsoft
-      </button>
+    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <div className="bg-white p-8 rounded-lg shadow-lg w-96 text-center">
+        <h2 className="text-2xl font-bold mb-4 text-gray-800">Login to UniSale</h2>
+        <button 
+          onClick={handleMicrosoftLogin}
+          className="w-full py-3 bg-blue-600 text-white rounded-md shadow-md hover:bg-blue-700 transition">
+          Login with Microsoft
+        </button>
+      </div>
     </div>
   );
 };

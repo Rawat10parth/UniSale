@@ -1,9 +1,11 @@
 import { auth } from "../firebase";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import ProductForm from "../components/ProductForm";
 
 const Dashboard = () => {
   const [user, setUser] = useState(null);
+  const [showForm, setShowForm] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -20,20 +22,29 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen">
-      <h1 className="text-3xl font-bold">Welcome to UniSale Dashboard 🎉</h1>
+    <div className="min-h-screen bg-gray-100 flex flex-col items-center py-10">
+      <h1 className="text-3xl font-bold text-gray-800">Welcome to Your Dashboard 🎉</h1>
+      
       {user ? (
-        <>
-          <p>You are logged in as: {user.email}</p>
-          <button
+        <div className="mt-6 bg-white p-6 rounded-lg shadow-lg text-center w-96">
+          <p className="text-lg font-medium text-gray-700">Logged in as: <span className="font-bold">{user.email}</span></p>
+          
+          <button 
             onClick={handleLogout}
-            className="px-4 py-2 bg-red-500 text-white rounded mt-4"
-          >
+            className="w-full mt-4 py-3 bg-red-500 text-white rounded-md shadow-md hover:bg-red-600 transition">
             Logout
           </button>
-        </>
+
+          <button 
+            onClick={() => setShowForm(true)}
+            className="w-full mt-4 py-3 bg-blue-600 text-white rounded-md shadow-md hover:bg-blue-700 transition">
+            + Create Product
+          </button>
+
+          {showForm && <ProductForm />}
+        </div>
       ) : (
-        <p>Loading user info...</p>
+        <p className="text-lg text-gray-600 mt-4">Loading user info...</p>
       )}
     </div>
   );
