@@ -38,7 +38,7 @@ GRAPH_API_ENDPOINT = os.getenv("GRAPH_API_ENDPOINT", "https://graph.microsoft.co
 # Allowed university domain
 ALLOWED_DOMAIN = "stu.upes.ac.in"
 
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "tactile-rigging-451008-a0-4fd7f13b64d2.json"
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "tactile-rigging-451008-a0-42c77176e025.json"
 
 # =================== MYSQL CONNECTION SETUP =================== #
 
@@ -159,20 +159,69 @@ def gcs_upload_image(file):
 
 @app.route('/upload-image', methods=['POST'])
 def upload_image():
+    print("Received request for image upload")  # Debugging
+
     if 'image' not in request.files:
+        print("No file part in request")  # Debugging
         return jsonify({"error": "No file part"}), 400
-    file = request.files['image']
+
+    file = request.files.get('image')
     if file.filename == '':
+        print("No file selected")  # Debugging
         return jsonify({"error": "No selected file"}), 400
 
-    # Upload to Google Cloud Storage
     image_url = gcs_upload_image(file)
-
     if image_url:
+        print("Image uploaded successfully:", image_url)  # Debugging
         return jsonify({"success": True, "image_url": image_url}), 200
     else:
+        print("Image upload failed")  # Debugging
         return jsonify({"error": "Failed to upload image"}), 500
+
+
+db = mysql.connector.connect(
+    host="localhost", user="root", password="", database="unisale"
+)
+cursor = db.cursor()
+
+
+@app.route("/api/upload", methods=["POST"])
+def upload_product():
+    if 'image' not in request.files:
+        return jsonify({"error": "No image uploaded"}), 400
+
+    file = request.files['image']
+    image_url = gcs_upload_image(file)  # Upload to Google Cloud
+
+    if not image_url:
+        return jsonify({"error": "Image upload failed"}), 500
+
+    # Get product details from form data
+    user_id = request.form.get("user_id")
+    name = request.form.get("name")
+    description = request.form.get("description")
+    price = request.form.get("price")
+
+    if not all([user_id, name, description, price, image_url]):
+        return jsonify({"error": "All fields are required"}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO product (user_id, name, description, price, image_url) VALUES (%s, %s, %s, %s, %s)",
+            (user_id, name, description, price, image_url),
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({"message": "Product uploaded successfully", "image_url": image_url}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
     app.run(debug=True)
+
+# curl -X POST -F "image=@Zoro-Wallpaper-4k.jpg" http://127.0.0.1:5000/upload-image
