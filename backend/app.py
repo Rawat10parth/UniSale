@@ -10,6 +10,7 @@ from firebase_admin import auth, credentials
 from google.cloud import storage
 import uuid, tempfile
 from werkzeug.utils import secure_filename
+import traceback
 
 # Load environment variables
 load_dotenv()
@@ -121,14 +122,14 @@ def signup():
 BUCKET_NAME = "unisale-storage"
 
 
-def gcs_upload_image(file):
-    """Uploads an image to Google Cloud Storage and returns the public URL."""
+def gcs_upload_image(file, folder):
+    """Uploads an image to Google Cloud Storage under the specified folder and returns the public URL."""
     try:
         storage_client = storage.Client()
         bucket = storage_client.bucket(BUCKET_NAME)
 
-        # Generate a unique filename
-        unique_filename = f"{uuid.uuid4()}_{file.filename}"
+        # Generate a unique filename inside the folder
+        unique_filename = f"{folder}/{uuid.uuid4()}_{secure_filename(file.filename)}"
         blob = bucket.blob(unique_filename)
 
         # Create a temporary file
@@ -157,28 +158,6 @@ def gcs_upload_image(file):
         return None
 
 
-@app.route('/upload-image', methods=['POST'])
-def upload_image():
-    print("Received request for image upload")  # Debugging
-
-    if 'image' not in request.files:
-        print("No file part in request")  # Debugging
-        return jsonify({"error": "No file part"}), 400
-
-    file = request.files.get('image')
-    if file.filename == '':
-        print("No file selected")  # Debugging
-        return jsonify({"error": "No selected file"}), 400
-
-    image_url = gcs_upload_image(file)
-    if image_url:
-        print("Image uploaded successfully:", image_url)  # Debugging
-        return jsonify({"success": True, "image_url": image_url}), 200
-    else:
-        print("Image upload failed")  # Debugging
-        return jsonify({"error": "Failed to upload image"}), 500
-
-
 db = mysql.connector.connect(
     host="localhost", user="root", password="", database="unisale"
 )
@@ -191,7 +170,7 @@ def upload_product():
         return jsonify({"error": "No image uploaded"}), 400
 
     file = request.files['image']
-    image_url = gcs_upload_image(file)  # Upload to Google Cloud
+    image_url = gcs_upload_image(file, "product-image")  # Upload to 'product-image' folder
 
     if not image_url:
         return jsonify({"error": "Image upload failed"}), 500
@@ -209,7 +188,7 @@ def upload_product():
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO product (user_id, name, description, price, image_url) VALUES (%s, %s, %s, %s, %s)",
+            "INSERT INTO products (user_id, name, description, price, image_url) VALUES (%s, %s, %s, %s, %s)",
             (user_id, name, description, price, image_url),
         )
         conn.commit()
@@ -219,6 +198,103 @@ def upload_product():
         return jsonify({"message": "Product uploaded successfully", "image_url": image_url}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/update-profile-picture", methods=["POST"])
+def update_profile_picture():
+    user_id = request.form.get("user_id")
+    if "image" not in request.files or not user_id:
+        return jsonify({"error": "Missing image or user_id"}), 400
+
+    file = request.files["image"]
+    image_url = gcs_upload_image(file, "profile-picture")  # Upload to 'profile-picture' folder
+    if not image_url:
+        return jsonify({"error": "Image upload failed"}), 500
+
+    try:
+        cursor.execute("UPDATE users SET profile_picture = %s WHERE id = %s", (image_url, user_id))
+        db.commit()
+        return jsonify({"message": "Profile picture updated", "image_url": image_url}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# Fetch User Profile API
+@app.route('/get-profile', methods=['POST', 'GET'])
+def get_profile():
+    email = None
+
+    if request.method == 'GET':
+        email = request.args.get('email')
+    else:
+        data = request.json
+        email = data.get('email') if data else None
+
+    if not email:
+        return jsonify({"error": "Email is required"}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT id, name, profile_picture, phone FROM users WHERE email = %s", (email,))
+        user = cursor.fetchone()
+        conn.close()
+
+        if user:
+            return jsonify({
+                "id": user["id"],
+                "name": user["name"],
+                "profilePic": user["profile_picture"] or "https://via.placeholder.com/150",
+                "phoneNumber": user["phone"] or ""
+            })
+        else:
+            return jsonify({"error": "User not found"}), 404
+
+    except Exception as e:
+        print("Error in get-profile route:")
+        print(traceback.format_exc())  # Logs full error stack trace
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/update-name", methods=["POST"])
+def update_name():
+    data = request.json
+    user_id = data.get("user_id")
+    name = data.get("name")
+
+    if not user_id or not name:
+        return jsonify({"error": "Missing user_id or name"}), 400
+
+    try:
+        cursor.execute("UPDATE users SET name = %s WHERE id = %s", (name, user_id))
+        db.commit()
+        return jsonify({"message": "Name updated successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/update-phone-number", methods=["POST"])
+def update_phone_number():
+    data = request.json
+    user_id = data.get("user_id")
+    phone_number = data.get("phone_number")
+
+    # Validate phone number: must be 10 digits
+    if not user_id or not phone_number or not phone_number.isdigit() or len(phone_number) != 10:
+        return jsonify({"error": "Invalid phone number. Must be exactly 10 digits."}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE users SET phone = %s WHERE id = %s", (phone_number, user_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({"message": "Phone number updated successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 
 if __name__ == "__main__":
