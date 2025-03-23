@@ -39,7 +39,7 @@ GRAPH_API_ENDPOINT = os.getenv("GRAPH_API_ENDPOINT", "https://graph.microsoft.co
 # Allowed university domain
 ALLOWED_DOMAIN = "stu.upes.ac.in"
 
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "tactile-rigging-451008-a0-42c77176e025.json"
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "tactile-rigging-451008-a0-f0a39bd91c95.json"
 
 # =================== MYSQL CONNECTION SETUP =================== #
 
@@ -58,7 +58,7 @@ def get_db_connection():
         password=MYSQL_PASSWORD,
         database=MYSQL_DATABASE,
         pool_name="unisale_pool",
-        pool_size=5
+        pool_size=10
     )
 
 
@@ -295,6 +295,80 @@ def update_phone_number():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+@app.route("/get-products", methods=["GET"])
+def get_products():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT id, name, description, price, image_url FROM products")  # Ensure 'id' is included
+        products = cursor.fetchall()
+        conn.close()
+        return jsonify(products)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/add-to-wishlist", methods=["POST"])
+def add_to_wishlist():
+    data = request.json
+    users_id = data.get("users_id")
+    image_url = data.get("image_url")  # Using image_url instead of product_id
+
+    if not users_id or not image_url:
+        return jsonify({"error": "Missing users_id or image_url"}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO wishlist (users_id, image_url) VALUES (%s, %s)",
+            (users_id, image_url),
+        )
+        conn.commit()
+        conn.close()
+        return jsonify({"message": "Added to wishlist successfully!"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/wishlist/remove", methods=["DELETE"])
+def remove_from_wishlist():
+    data = request.json
+    users_id = data.get("users_id")
+    image_url = data.get("image_url")  # Now using image_url instead of product_id
+
+    if not users_id or not image_url:
+        return jsonify({"error": "Missing users_id or image_url"}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM wishlist WHERE users_id = %s AND image_url = %s", (users_id, image_url))
+        conn.commit()
+        return jsonify({"message": "Removed from wishlist"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/wishlist", methods=["GET"])
+def get_wishlist():
+    users_id = request.args.get("users_id")  # Ensure naming consistency
+
+    if not users_id:
+        return jsonify({"error": "Missing user_id"}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT image_url FROM wishlist
+            WHERE users_id = %s
+        """, (users_id,))
+        wishlist_items = cursor.fetchall()
+        return jsonify(wishlist_items), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
