@@ -309,66 +309,86 @@ def get_products():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/add-to-wishlist", methods=["POST"])
-def add_to_wishlist():
+@app.route('/toggle-wishlist', methods=['POST'])
+def toggle_wishlist():
     data = request.json
     users_id = data.get("users_id")
-    image_url = data.get("image_url")  # Using image_url instead of product_id
+    image_url = data.get("image_url")
 
     if not users_id or not image_url:
-        return jsonify({"error": "Missing users_id or image_url"}), 400
+        return jsonify({"error": "Missing fields"}), 400
 
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO wishlist (users_id, image_url) VALUES (%s, %s)",
-            (users_id, image_url),
+        conn = mysql.connector.connect(
+            host="localhost", user="root", password="", database="unisale"
         )
-        conn.commit()
-        conn.close()
-        return jsonify({"message": "Added to wishlist successfully!"}), 201
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@app.route("/wishlist/remove", methods=["DELETE"])
-def remove_from_wishlist():
-    data = request.json
-    users_id = data.get("users_id")
-    image_url = data.get("image_url")  # Now using image_url instead of product_id
-
-    if not users_id or not image_url:
-        return jsonify({"error": "Missing users_id or image_url"}), 400
-
-    try:
-        conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM wishlist WHERE users_id = %s AND image_url = %s", (users_id, image_url))
-        conn.commit()
-        return jsonify({"message": "Removed from wishlist"}), 200
+
+        # Check if item exists
+        cursor.execute("SELECT * FROM wishlist WHERE users_id = %s AND image_url = %s", (users_id, image_url))
+        existing = cursor.fetchone()
+
+        if existing:
+            # If it exists, remove it
+            cursor.execute("DELETE FROM wishlist WHERE users_id = %s AND image_url = %s", (users_id, image_url))
+            conn.commit()
+            return jsonify({"message": "Removed from wishlist"})
+        else:
+            # If it doesn't exist, insert it
+            cursor.execute("INSERT INTO wishlist (users_id, image_url) VALUES (%s, %s)", (users_id, image_url))
+            conn.commit()
+            return jsonify({"message": "Added to wishlist"})
+
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print("Error toggling wishlist:", e)
+        return jsonify({"error": "Server error"}), 500
+
+    finally:
+        cursor.close()
+        conn.close()
 
 
-@app.route("/wishlist", methods=["GET"])
+@app.route('/get-wishlist', methods=['GET'])
 def get_wishlist():
-    users_id = request.args.get("users_id")  # Ensure naming consistency
-
-    if not users_id:
-        return jsonify({"error": "Missing user_id"}), 400
+    email = request.args.get('email')
+    if not email:
+        return jsonify({'error': 'Email is required'}), 400
 
     try:
-        conn = get_db_connection()
+        conn = mysql.connector.connect(
+            host='localhost',
+            user='root',
+            password='',
+            database='unisale'
+        )
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("""
-            SELECT image_url FROM wishlist
-            WHERE users_id = %s
-        """, (users_id,))
-        wishlist_items = cursor.fetchall()
-        return jsonify(wishlist_items), 200
+
+        # Get the user ID
+        cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
+        user = cursor.fetchone()
+        if not user:
+            return jsonify([])
+
+        user_id = user['id']
+
+        # Join wishlist and product using image_url
+        query = """
+            SELECT p.name, p.description, p.price, p.image_url
+            FROM wishlist w
+            JOIN products p ON w.image_url = p.image_url
+            WHERE w.users_id = %s
+        """
+        cursor.execute(query, (user_id,))
+        items = cursor.fetchall()
+
+        return jsonify(items)
+
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print("Error in /get-wishlist:", e)
+        return jsonify({'error': 'Something went wrong'}), 500
+    finally:
+        cursor.close()
+        conn.close()
 
 
 if __name__ == "__main__":
