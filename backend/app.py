@@ -39,7 +39,7 @@ GRAPH_API_ENDPOINT = os.getenv("GRAPH_API_ENDPOINT", "https://graph.microsoft.co
 # Allowed university domain
 ALLOWED_DOMAIN = "stu.upes.ac.in"
 
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "tactile-rigging-451008-a0-f0a39bd91c95.json"
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = ""
 
 # =================== MYSQL CONNECTION SETUP =================== #
 
@@ -58,7 +58,6 @@ def get_db_connection():
         password=MYSQL_PASSWORD,
         database=MYSQL_DATABASE,
         pool_name="unisale_pool",
-        pool_size=10
     )
 
 
@@ -66,6 +65,39 @@ def get_db_connection():
 
 cred = credentials.Certificate("firebase-adminsdk.json")  # Update path
 firebase_admin.initialize_app(cred)
+
+
+# Utility function to get Firebase UID from token
+def get_current_user_id():
+    id_token = request.headers.get('Authorization')
+    if not id_token:
+        return None
+
+    try:
+        decoded_token = auth.verify_id_token(id_token.split(' ')[1])
+        user_email = decoded_token['email']
+
+        # Fetch user_id from DB using email
+        cursor = mysql.connection.cursor(dictionary=True)
+        cursor.execute("SELECT id FROM users WHERE email = %s", (user_email,))
+        user = cursor.fetchone()
+        return user['id'] if user else None
+    except:
+        return None
+
+
+# Get product by ID
+def get_product_by_id(product_id):
+    cursor = mysql.connection.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM product WHERE id = %s", (product_id,))
+    return cursor.fetchone()
+
+
+# Delete product by ID
+def delete_product_by_id(product_id):
+    cursor = mysql.connection.cursor()
+    cursor.execute("DELETE FROM product WHERE id = %s", (product_id,))
+    mysql.connection.commit()
 
 
 # =================== ROUTES =================== #
@@ -179,17 +211,21 @@ def upload_product():
     user_id = request.form.get("user_id")
     name = request.form.get("name")
     description = request.form.get("description")
+    category = request.form.get("category")
+    state = request.form.get("state")
     price = request.form.get("price")
 
-    if not all([user_id, name, description, price, image_url]):
+    if not all([user_id, name, description, category, state, price, image_url]):
         return jsonify({"error": "All fields are required"}), 400
 
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO products (user_id, name, description, price, image_url) VALUES (%s, %s, %s, %s, %s)",
-            (user_id, name, description, price, image_url),
+            "INSERT INTO products (user_id, name, description, category, state, price, image_url) VALUES (%s, %s, %s, "
+            "%s,"
+            "%s, %s, %s)",
+            (user_id, name, description, category, state, price, image_url),
         )
         conn.commit()
         cursor.close()
@@ -301,7 +337,8 @@ def get_products():
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT id, name, description, price, image_url FROM products")  # Ensure 'id' is included
+        # Include id so that products in the frontend have an identifier.
+        cursor.execute("SELECT id, user_id, name, description, category, state, price, image_url FROM products")
         products = cursor.fetchall()
         conn.close()
         return jsonify(products)
@@ -309,50 +346,98 @@ def get_products():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/api/products/<int:product_id>', methods=['PUT'])
+def update_product(product_id):
+    # You can add authorization checks here if needed,
+    # for example, ensuring the current user is the owner of the product.
+    data = request.json
+    # Make sure to get the necessary fields from the request.
+    name = data.get("name")
+    description = data.get("description")
+    category = data.get("category")
+    state = data.get("state")
+    price = data.get("price")
+
+    # Validate that all required fields are provided.
+    if not all([name, description, category, state, price]):
+        return jsonify({"error": "All fields are required to update the product"}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        update_query = """
+            UPDATE products
+            SET name = %s, description = %s, category = %s, state = %s, price = %s
+            WHERE id = %s
+        """
+        cursor.execute(update_query, (name, description, category, state, price, product_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify({"message": "Product updated successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/userid')
+def get_user_id():
+    user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({'error': 'Unauthorized'}), 403
+    return jsonify({'user_id': user_id})
+
+
 @app.route('/toggle-wishlist', methods=['POST'])
 def toggle_wishlist():
     data = request.json
-    users_id = data.get("users_id")
+    user_id = data.get("users_id")
     image_url = data.get("image_url")
 
-    if not users_id or not image_url:
+    if not user_id or not image_url:
         return jsonify({"error": "Missing fields"}), 400
 
     try:
-        conn = mysql.connector.connect(
-            host="localhost", user="root", password="", database="unisale"
-        )
-        cursor = conn.cursor()
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
 
         # Check if item exists
-        cursor.execute("SELECT * FROM wishlist WHERE users_id = %s AND image_url = %s", (users_id, image_url))
+        cursor.execute(
+            "SELECT * FROM wishlist WHERE users_id = %s AND image_url = %s",
+            (user_id, image_url)
+        )
         existing = cursor.fetchone()
 
         if existing:
-            # If it exists, remove it
-            cursor.execute("DELETE FROM wishlist WHERE users_id = %s AND image_url = %s", (users_id, image_url))
+            # If it exists, remove it (toggle off)
+            cursor.execute(
+                "DELETE FROM wishlist WHERE users_id = %s AND image_url = %s",
+                (user_id, image_url)
+            )
             conn.commit()
-            return jsonify({"message": "Removed from wishlist"})
+            result = {"message": "Removed from wishlist", "status": "removed"}
         else:
-            # If it doesn't exist, insert it
-            cursor.execute("INSERT INTO wishlist (users_id, image_url) VALUES (%s, %s)", (users_id, image_url))
+            # Otherwise, add it (toggle on)
+            cursor.execute(
+                "INSERT INTO wishlist (users_id, image_url) VALUES (%s, %s)",
+                (user_id, image_url)
+            )
             conn.commit()
-            return jsonify({"message": "Added to wishlist"})
+            result = {"message": "Added to wishlist", "status": "added"}
 
-    except Exception as e:
-        print("Error toggling wishlist:", e)
-        return jsonify({"error": "Server error"}), 500
-
-    finally:
         cursor.close()
         conn.close()
+        return jsonify(result), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/get-wishlist', methods=['GET'])
 def get_wishlist():
-    email = request.args.get('email')
-    if not email:
-        return jsonify({'error': 'Email is required'}), 400
+    user_id = request.args.get('user_id')
+    if not user_id:
+        return jsonify({'error': 'User ID is required'}), 400
 
     try:
         conn = mysql.connector.connect(
@@ -363,17 +448,9 @@ def get_wishlist():
         )
         cursor = conn.cursor(dictionary=True)
 
-        # Get the user ID
-        cursor.execute("SELECT id FROM users WHERE email = %s", (email,))
-        user = cursor.fetchone()
-        if not user:
-            return jsonify([])
-
-        user_id = user['id']
-
-        # Join wishlist and product using image_url
+        # UPDATED QUERY: Now selecting p.category as well.
         query = """
-            SELECT p.name, p.description, p.price, p.image_url
+            SELECT p.name, p.description, p.price, p.state, p.image_url, p.category
             FROM wishlist w
             JOIN products p ON w.image_url = p.image_url
             WHERE w.users_id = %s
