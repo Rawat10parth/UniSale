@@ -1,6 +1,7 @@
 import { getAuth } from "firebase/auth";
 import { useState, useEffect } from "react";
 import axios from "axios";
+import { toast } from "react-toastify";
 
 const Profile = () => {
   const auth = getAuth();
@@ -11,7 +12,7 @@ const Profile = () => {
 
   useEffect(() => {
     if (!auth.currentUser) {
-      console.error("User is not logged in.");
+      toast.error("User is not logged in.");
       return;
     }
 
@@ -28,7 +29,7 @@ const Profile = () => {
 
   const handlePhoneUpdate = async () => {
     if (!/^\d{10}$/.test(phoneNumber)) { 
-      alert("Phone number must be exactly 10 digits.");
+      toast.error("Phone number must be exactly 10 digits.");
       return;
     }
   
@@ -39,20 +40,20 @@ const Profile = () => {
       });
   
       if (response.status === 200) {
-        alert("Phone number updated successfully!");
+        toast.success("Phone number updated successfully!");
       } else {
-        alert("Error updating phone number.");
+        toast.error("Error updating phone number.");
       }
     } catch (error) {
       console.error("Error updating phone number:", error.response?.data || error);
-      alert("Failed to update phone number.");
+      toast.error("Failed to update phone number.");
     }
   };
   
 
   const handleNameUpdate = async () => {
     if (name.trim() === "") {
-      alert("Name cannot be empty.");
+      toast.error("Name cannot be empty.");
       return;
     }
 
@@ -61,7 +62,7 @@ const Profile = () => {
         user_id: user.id,
         name,
       });
-      alert("Name updated successfully!");
+      toast.success("Name updated successfully!");
     } catch (error) {
       console.error("Error updating name:", error);
     }
@@ -80,44 +81,87 @@ const Profile = () => {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setImageUrl(response.data.image_url);
-      alert("Profile picture updated successfully!");
+      toast.success("Profile picture updated successfully!");
     } catch (error) {
       console.error("Error uploading profile picture:", error);
     }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen">
-      <h2 className="text-2xl font-bold">Profile</h2>
-      {user ? (
-        <>
-          <img src={imageUrl} alt="Profile" className="w-24 h-24 rounded-full mt-4" />
-          <p className="mt-2">Welcome, {user.email} 🎉</p>
-
-          <input type="file" onChange={handleImageUpload} className="mt-2 border p-2" />
-
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="mt-2 border p-2"
-            placeholder="Enter name"
-          />
-          <button onClick={handleNameUpdate} className="mt-2 bg-green-500 text-white px-4 py-2 rounded">Update Name</button>
-
-          <input
-            type="text"
-            value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
-            className="mt-2 border p-2"
-            placeholder="Enter phone number"
-            maxLength={10}
-          />
-          <button onClick={handlePhoneUpdate} className="mt-2 bg-blue-500 text-white px-4 py-2 rounded">Update Phone</button>
-        </>
-      ) : (
-        <p>Loading...</p>
-      )}
+    <div
+      className="min-h-screen bg-cover bg-center flex items-center justify-center"
+      style={{ backgroundImage: "url('/home-bg.png')" }}
+    >
+      <div className="flex justify-center items-center min-h-screen w-full px-4">
+        <div className="bg-opacity-10 backdrop-blur-md p-8 rounded-2xl shadow-2xl w-full max-w-md text-center border border-white/20">
+          <h2 className="text-3xl font-bold text-fuchsia-100 mb-6 drop-shadow-[0_2px_5px_rgba(255,255,255,0.25)]">
+            Your Profile
+          </h2>
+  
+          {user ? (
+            <>
+              <img
+                src={imageUrl || "/logo.jpg"}
+                alt="Profile"
+                className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-white/30 shadow-md"
+              />
+              <p className="text-fuchsia-100 mb-6 text-xl">
+                Welcome, <span className="font-semibold ">{user.email}</span>
+              </p>
+  
+              <div className="mb-4 text-left">
+                <label className="block text-sm font-semibold text-fuchsia-100 mb-1">
+                  Profile Picture
+                </label>
+                <input
+                  type="file"
+                  onChange={handleImageUpload}
+                  className="w-full p-2 bg-white/40 bg-opacity-20 text-black placeholder-white border border-white/30 rounded focus:outline-none focus:ring-2 focus:ring-fuchsia-300"
+                />
+              </div>
+  
+              <div className="mb-4 text-left">
+                <label className="block text-sm font-semibold text-fuchsia-100 mb-1">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full p-2 bg-white/40 bg-opacity-20 text-black placeholder-white border border-white/30 rounded focus:outline-none focus:ring-2 focus:ring-fuchsia-300"
+                />
+                <button
+                  onClick={handleNameUpdate}
+                  className="mt-3 w-full bg-green-500 shadow-lg shadow-green-500/50 hover:bg-green-600 text-white font-semibold py-2 rounded-lg transition hover:scale-105"
+                >
+                  Update Name
+                </button>
+              </div>
+  
+              <div className="mb-4 text-left">
+                <label className="block text-sm font-semibold text-fuchsia-100 mb-1">
+                  Phone Number
+                </label>
+                <input
+                  type="text"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  maxLength={10}
+                  className="w-full p-2 bg-white/40 bg-opacity-20 text-black placeholder-white border border-white/30 rounded focus:outline-none focus:ring-2 focus:ring-fuchsia-300"
+                />
+                <button
+                  onClick={handlePhoneUpdate}
+                  className="mt-3 w-full bg-blue-600 shadow-lg shadow-blue-500/50 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition hover:scale-105"
+                >
+                  Update Phone
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="text-white">Loading...</p>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

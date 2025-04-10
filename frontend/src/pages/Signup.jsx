@@ -1,6 +1,7 @@
 import { auth } from "../firebase";
 import { signInWithPopup, OAuthProvider } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -26,7 +27,7 @@ const Signup = () => {
       }
     } catch (error) {
       console.error("Microsoft Signup error:", error);
-      alert("Signup failed! " + error.message);
+      toast.error("Signup failed! " + error.message);
     }
   };
   
@@ -43,7 +44,7 @@ const Signup = () => {
       });
   
       const data = await response.json();
-      alert(data.message); // Show success or error message
+      toast.success(data.message); // Show success or error message
   
       return data.success; // Return success status
   
@@ -55,16 +56,19 @@ const Signup = () => {
   
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <div className="bg-white p-8 rounded-lg shadow-lg w-96 text-center">
-        <h2 className="text-2xl font-bold mb-4 text-gray-800">Signup for UniSale</h2>
-        <button 
-          onClick={handleMicrosoftSignup}
-          className="w-full py-3 bg-green-600 text-white rounded-md shadow-md hover:bg-green-700 transition">
-          Signup with Microsoft
-        </button>
-      </div>
-    </div>
+    <div
+      className="min-h-screen bg-cover bg-center flex items-center justify-center"
+      style={{ backgroundImage: "url('/home-bg.png')" }}
+    >
+    <div className="bg-transparent p-10 rounded-2xl text-center max-w-md w-full">
+      <h2 className="text-3xl font-bold text-fuchsia-200 mb-5 drop-shadow-[0_1px_3px_rgba(255,255,255,0.2)] hover:scale-105">Sign up for UniSale</h2>
+    <button 
+      onClick={handleMicrosoftSignup}
+      className="w-full py-3 bg-green-700 shadow-lg shadow-green-500/50 text-white rounded-md hover:bg-green-600 transition font-medium hover:scale-110">
+      Signup with Microsoft
+    </button>
+  </div>
+</div>
   );
 };
 
