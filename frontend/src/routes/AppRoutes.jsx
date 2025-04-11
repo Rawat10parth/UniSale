@@ -12,6 +12,7 @@ import Profile from "../pages/Profile";
 import PrivateRoute from "../components/PrivateRoute";
 import ProductForm from "../components/ProductForm";
 import Wishlist from "../pages/Wishlist";
+import ProductDetail from "../pages/ProductDetails"; // Import the new component
 
 
 const AppRoutes = () => {
@@ -42,6 +43,7 @@ const AppRoutes = () => {
           <Route path="/profile" element={<Profile />} />
           <Route path="/create-product" element={<ProductForm />} />
           <Route path="/wishlist" element={<Wishlist userId={user?.uid} />} />
+          <Route path="/product/:productId" element={<ProductDetail />} /> {/* New product detail route */}
         </Route>
       </Routes>
     </Router>
