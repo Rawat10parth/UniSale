@@ -1,10 +1,12 @@
 import { getAuth } from "firebase/auth";
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
 
 const Profile = () => {
   const auth = getAuth();
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [name, setName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -92,6 +94,15 @@ const Profile = () => {
       className="min-h-screen bg-cover bg-center flex items-center justify-center"
       style={{ backgroundImage: "url('/home-bg.png')" }}
     >
+      <button className="absolute top-6 left-6 flex items-center gap-2 bg-blue-500 shadow-lg shadow-blue-500/50 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700 transition duration-200 hover:scale-105"
+        onClick={() => navigate("/dashboard")}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" className="bi bi-arrow-bar-left" viewBox="0 0 16 16">
+          <path fillRule="evenodd" d="M12.5 15a.5.5 0 0 1-.5-.5v-13a.5.5 0 0 1 1 0v13a.5.5 0 0 1-.5.5M10 8a.5.5 0 0 1-.5.5H3.707l2.147 2.146a.5.5 0 0 1-.708.708l-3-3a.5.5 0 0 1 0-.708l3-3a.5.5 0 1 1 .708.708L3.707 7.5H9.5a.5.5 0 0 1 .5.5"/>
+        </svg>
+        Go Back
+      </button>
+
       <div className="flex justify-center items-center min-h-screen w-full px-4">
         <div className="bg-opacity-10 backdrop-blur-md p-8 rounded-2xl shadow-2xl w-full max-w-md text-center border border-white/20">
           <h2 className="text-3xl font-bold text-fuchsia-100 mb-6 drop-shadow-[0_2px_5px_rgba(255,255,255,0.25)]">
