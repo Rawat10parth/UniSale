@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import PropTypes from "prop-types";
+import ZoomableImage from "../components/ZoomableImage";
 
 const Wishlist = ({ userId }) => {
   const [wishlist, setWishlist] = useState([]);
@@ -20,9 +21,7 @@ const Wishlist = ({ userId }) => {
         setLoading(false);
       }
     };
-    if (userId) {
-      fetchWishlist();
-    }
+    if (userId) fetchWishlist();
   }, [userId]);
 
   const removeFromWishlist = async (image_url) => {
@@ -34,6 +33,7 @@ const Wishlist = ({ userId }) => {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to remove");
+      // Update wishlist state by removing the item with matching image_url
       setWishlist(wishlist.filter((item) => item.image_url !== image_url));
       showToast("Removed from wishlist ✅");
     } catch (error) {
@@ -47,7 +47,7 @@ const Wishlist = ({ userId }) => {
     setTimeout(() => setToastMsg(null), 2500);
   };
 
-  // Filter wishlist based on selected category and condition
+  // Filter wishlist items based on selected category and condition
   const filteredWishlist = wishlist.filter((item) => {
     const categoryMatch = selectedCategory === "All" || item.category === selectedCategory;
     const conditionMatch = selectedCondition === "" || item.state === selectedCondition;
@@ -105,7 +105,13 @@ const Wishlist = ({ userId }) => {
               key={index}
               className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300"
             >
-              <img src={item.image_url} alt={item.name} className="w-full h-48 object-cover" />
+              {/* Replace with EnhancedImage component */}
+              <ZoomableImage 
+                src={item.image_url}
+                alt={item.name}
+                aspectRatio="4/3"
+                />
+              
               <div className="p-4">
                 <h3 className="text-lg font-semibold">{item.name}</h3>
                 <p className="text-gray-600 text-sm mt-1 truncate">{item.description}</p>
