@@ -5,7 +5,6 @@ const WishlistCount = ({ userId }) => {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
-    // Define the fetch function inside useEffect
     const fetchWishlistCount = async () => {
       try {
         const res = await fetch(`http://127.0.0.1:5000/get-wishlist?user_id=${userId}`);
@@ -18,7 +17,7 @@ const WishlistCount = ({ userId }) => {
 
     if (userId) {
       fetchWishlistCount();
-      const interval = setInterval(fetchWishlistCount, 5000);
+      const interval = setInterval(fetchWishlistCount, 2000);
       return () => clearInterval(interval);
     }
   }, [userId]);

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import { toast } from "react-toastify";
 import InfiniteScroll from "react-infinite-scroll-component";
+import ZoomableImage from "./ZoomableImage";
 
 const ProductList = ({ products, userId, fetchProducts }) => {
   const [wishlistItems, setWishlistItems] = useState([]);
@@ -126,10 +127,17 @@ const ProductList = ({ products, userId, fetchProducts }) => {
           displayedProducts.map((product) => {
             const inWishlist = wishlistItems.includes(product.image_url);
             return (
-              <div key={product.id} className="border p-4 rounded-lg shadow-md hover:scale-105 transition">
-                <div className="w-full h-48 overflow-hidden rounded mb-2">
-                  <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
-                </div>
+              <div
+                key={product.id}
+                className="border p-4 rounded-lg shadow-md hover:scale-105 transition"
+              >
+                {/* Replace the previous image container with EnhancedImage */}
+                <ZoomableImage 
+                  src={product.image_url}
+                  alt={product.name}
+                  aspectRatio="4/3"
+                />
+                
                 <h3 className="text-lg font-semibold">{product.name}</h3>
                 <p className="text-gray-600 text-sm">{product.description}</p>
                 <p className="text-sm italic text-gray-500">{product.category}</p>
@@ -145,10 +153,16 @@ const ProductList = ({ products, userId, fetchProducts }) => {
                 </button>
                 {product.user_id === userId && (
                   <div className="flex gap-2 mt-2">
-                    <button onClick={() => setEditProduct(product)} className="bg-yellow-500 text-white px-3 py-1 rounded w-full">
+                    <button
+                      onClick={() => setEditProduct(product)}
+                      className="bg-yellow-500 text-white px-3 py-1 rounded w-full"
+                    >
                       Edit
                     </button>
-                    <button onClick={() => handleDelete(product.id)} className="bg-red-500 text-white px-3 py-1 rounded w-full">
+                    <button
+                      onClick={() => handleDelete(product.id)}
+                      className="bg-red-500 text-white px-3 py-1 rounded w-full"
+                    >
                       Delete
                     </button>
                   </div>
@@ -159,9 +173,13 @@ const ProductList = ({ products, userId, fetchProducts }) => {
         )}
       </div>
 
+      {/* Edit Product Modal */}
       {editProduct && (
         <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex items-center justify-center z-50">
-          <form onSubmit={handleEditSubmit} className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
+          <form
+            onSubmit={handleEditSubmit}
+            className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md"
+          >
             <h3 className="text-xl font-bold mb-4">Edit Product</h3>
             <input
               type="text"
@@ -173,7 +191,9 @@ const ProductList = ({ products, userId, fetchProducts }) => {
             />
             <textarea
               value={editProduct.description}
-              onChange={(e) => setEditProduct({ ...editProduct, description: e.target.value })}
+              onChange={(e) =>
+                setEditProduct({ ...editProduct, description: e.target.value })
+              }
               className="border p-2 w-full mb-2 rounded"
               placeholder="Description"
               required
@@ -196,10 +216,17 @@ const ProductList = ({ products, userId, fetchProducts }) => {
               <option value="Used">Used</option>
             </select>
             <div className="flex justify-end space-x-3">
-              <button type="button" className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400" onClick={() => setEditProduct(null)}>
+              <button
+                type="button"
+                className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                onClick={() => setEditProduct(null)}
+              >
                 Cancel
               </button>
-              <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
                 Save
               </button>
             </div>
