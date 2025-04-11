@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import InfiniteScroll from "react-infinite-scroll-component";
 import ZoomableImage from "./ZoomableImage";
 
 const ProductList = ({ products, userId, fetchProducts }) => {
+  const navigate = useNavigate();
   const [wishlistItems, setWishlistItems] = useState([]);
   const [editProduct, setEditProduct] = useState(null);
   const [displayedProducts, setDisplayedProducts] = useState([]);
@@ -131,6 +133,10 @@ const ProductList = ({ products, userId, fetchProducts }) => {
                 key={product.id}
                 className="border p-4 rounded-lg shadow-md hover:scale-105 transition"
               >
+                 <div 
+                  onClick={() => navigate(`/product/${product.id}`)}
+                  className="cursor-pointer"
+                >
                 {/* Replace the previous image container with EnhancedImage */}
                 <ZoomableImage 
                   src={product.image_url}
@@ -143,6 +149,7 @@ const ProductList = ({ products, userId, fetchProducts }) => {
                 <p className="text-sm italic text-gray-500">{product.category}</p>
                 <p className="text-sm italic text-gray-500">{product.state}</p>
                 <p className="text-green-600 font-bold mt-1">₹{product.price}</p>
+                </div>
                 <button
                   onClick={() => toggleWishlist(product.image_url)}
                   className={`mt-2 px-4 py-2 rounded text-white w-full ${
