@@ -39,7 +39,7 @@ GRAPH_API_ENDPOINT = os.getenv("GRAPH_API_ENDPOINT", "https://graph.microsoft.co
 # Allowed university domain
 ALLOWED_DOMAIN = "stu.upes.ac.in"
 
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = ""
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "tactile-rigging-451008-a0-f0a39bd91c95.json"
 
 # =================== MYSQL CONNECTION SETUP =================== #
 
@@ -436,36 +436,137 @@ def toggle_wishlist():
 @app.route('/get-wishlist', methods=['GET'])
 def get_wishlist():
     user_id = request.args.get('user_id')
+
     if not user_id:
-        return jsonify({'error': 'User ID is required'}), 400
+        return jsonify({"error": "User ID is required"}), 400
 
     try:
-        conn = mysql.connector.connect(
-            host='localhost',
-            user='root',
-            password='',
-            database='unisale'
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # First, get the wishlist items (the image URLs) for the given user_id.
+        cursor.execute(
+            "SELECT image_url FROM wishlist WHERE users_id = %s",
+            (user_id,)
         )
-        cursor = conn.cursor(dictionary=True)
+        wishlist_items = cursor.fetchall()
 
-        # UPDATED QUERY: Now selecting p.category as well.
-        query = """
-            SELECT p.name, p.description, p.price, p.state, p.image_url, p.category
-            FROM wishlist w
-            JOIN products p ON w.image_url = p.image_url
-            WHERE w.users_id = %s
-        """
-        cursor.execute(query, (user_id,))
-        items = cursor.fetchall()
+        # If the wishlist is empty, clean up and return an empty list.
+        if not wishlist_items:
+            cursor.close()
+            conn.close()
+            return jsonify([])
 
-        return jsonify(items)
+        # Extract image URLs from the wishlist items.
+        image_urls = [item[0] for item in wishlist_items]
 
-    except Exception as e:
-        print("Error in /get-wishlist:", e)
-        return jsonify({'error': 'Something went wrong'}), 500
-    finally:
+        # Build placeholders for the SQL query.
+        placeholders = ', '.join(['%s'] * len(image_urls))
+
+        # Get full product details for these image URLs.
+        cursor.execute(
+            f"""
+            SELECT p.id, p.name, p.description, p.price, p.state, p.category, p.image_url, p.user_id 
+            FROM products p 
+            WHERE p.image_url IN ({placeholders})
+            """,
+            tuple(image_urls)
+        )
+
+        products = cursor.fetchall()
+
+        # Format the query results as a list of dictionaries.
+        result = []
+        for product in products:
+            result.append({
+                "id": product[0],
+                "name": product[1],
+                "description": product[2],
+                "price": product[3],
+                "state": product[4],
+                "category": product[5],
+                "image_url": product[6],
+                "user_id": product[7]
+            })
+
         cursor.close()
         conn.close()
+        return jsonify(result)
+
+    except Exception as e:
+        print(f"Error fetching wishlist: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/product/<int:product_id>', methods=['GET'])
+def get_product_detail(product_id):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        # Get product details
+        cursor.execute("""
+            SELECT id, user_id, name, description, category, state, price, image_url, created_at 
+            FROM products 
+            WHERE id = %s
+        """, (product_id,))
+        product = cursor.fetchone()
+
+        if not product:
+            return jsonify({"error": "Product not found"}), 404
+
+        # Get seller details
+        cursor.execute("""
+            SELECT id, name, email, profile_picture as profilePic, phone as phoneNumber
+            FROM users
+            WHERE id = %s
+        """, (product.get('user_id'),))
+        seller = cursor.fetchone()
+
+        conn.close()
+
+        # Format dates for better readability
+        if product and 'created_at' in product and product['created_at']:
+            product['created_at'] = product['created_at'].isoformat()
+
+        return jsonify({
+            "product": product,
+            "seller": seller
+        })
+
+    except Exception as e:
+        print("Error fetching product details:", e)
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/user/<int:user_id>", methods=["GET"])
+def get_user_by_id(user_id):
+    """Fetch user information by ID."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(
+            "SELECT id, name, email, phone, profile_picture FROM users WHERE id = %s",
+            (user_id,)
+        )
+        user = cursor.fetchone()
+        cursor.close()
+        conn.close()
+
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        # Don't expose sensitive information
+        return jsonify({
+            "id": user["id"],
+            "name": user["name"],
+            "email": user["email"],
+            "phone": user["phone"],
+            "profilePic": user["profile_picture"]
+        })
+    except Exception as e:
+        print(f"Error fetching user: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
