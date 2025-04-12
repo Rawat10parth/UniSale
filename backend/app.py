@@ -540,32 +540,116 @@ def get_product_detail(product_id):
 
 
 @app.route("/user/<int:user_id>", methods=["GET"])
-def get_user_by_id(user_id):
+def get_user_by_id(users_id):
     """Fetch user information by ID."""
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
         cursor.execute(
             "SELECT id, name, email, phone, profile_picture FROM users WHERE id = %s",
-            (user_id,)
+            (users_id,)
         )
-        user = cursor.fetchone()
+        users = cursor.fetchone()
         cursor.close()
         conn.close()
 
-        if not user:
+        if not users:
             return jsonify({"error": "User not found"}), 404
 
         # Don't expose sensitive information
         return jsonify({
-            "id": user["id"],
-            "name": user["name"],
-            "email": user["email"],
-            "phone": user["phone"],
-            "profilePic": user["profile_picture"]
+            "id": users["id"],
+            "name": users["name"],
+            "email": users["email"],
+            "phone": users["phone"],
+            "profilePic": users["profile_picture"]
         })
     except Exception as e:
         print(f"Error fetching user: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+# Add this new route to your app.py file
+
+@app.route("/api/upload-multiple", methods=["POST"])
+def upload_multiple_images():
+    if 'images[]' not in request.files:
+        return jsonify({"error": "No images uploaded"}), 400
+
+    files = request.files.getlist('images[]')
+    if not files or len(files) == 0:
+        return jsonify({"error": "No valid images found"}), 400
+
+    # Get product details from form data
+    user_id = request.form.get("user_id")
+    name = request.form.get("name")
+    description = request.form.get("description")
+    category = request.form.get("category")
+    state = request.form.get("state")
+    price = request.form.get("price")
+
+    if not all([user_id, name, description, category, state, price]):
+        return jsonify({"error": "All fields are required"}), 400
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Upload the first image and create the main product
+        main_image = files[0]
+        main_image_url = gcs_upload_image(main_image, "product-image")
+
+        if not main_image_url:
+            return jsonify({"error": "Main image upload failed"}), 500
+
+        # Insert the main product
+        cursor.execute(
+            "INSERT INTO products (user_id, name, description, category, state, price, image_url) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+            (user_id, name, description, category, state, price, main_image_url)
+        )
+        conn.commit()
+
+        # Get the product ID that was just created
+        product_id = cursor.lastrowid
+
+        # Process additional images (if any)
+        additional_image_urls = []
+        if len(files) > 1:
+            # Create a new table to store additional images if it doesn't exist
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS product_images (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    product_id INT NOT NULL,
+                    image_url VARCHAR(255) NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+                )
+            """)
+            conn.commit()
+
+            # Upload additional images
+            for i in range(1, len(files)):
+                image_url = gcs_upload_image(files[i], f"product-image/additional")
+                if image_url:
+                    cursor.execute(
+                        "INSERT INTO product_images (product_id, image_url) VALUES (%s, %s)",
+                        (product_id, image_url)
+                    )
+                    additional_image_urls.append(image_url)
+
+            conn.commit()
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            "message": "Product uploaded successfully",
+            "product_id": product_id,
+            "main_image": main_image_url,
+            "additional_images": additional_image_urls
+        }), 201
+    except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
