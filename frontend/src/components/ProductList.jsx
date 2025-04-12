@@ -131,7 +131,7 @@ const ProductList = ({ products, userId, fetchProducts }) => {
             return (
               <div
                 key={product.id}
-                className="border p-4 rounded-lg shadow-md hover:scale-105 transition"
+                className="border p-4 rounded-lg shadow-md transition"
               >
                  <div 
                   onClick={() => navigate(`/product/${product.id}`)}
@@ -162,13 +162,13 @@ const ProductList = ({ products, userId, fetchProducts }) => {
                   <div className="flex gap-2 mt-2">
                     <button
                       onClick={() => setEditProduct(product)}
-                      className="bg-yellow-500 text-white px-3 py-1 rounded w-full"
+                      className="bg-yellow-400 text-white px-3 py-1 rounded w-full hover:bg-yellow-500"
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => handleDelete(product.id)}
-                      className="bg-red-500 text-white px-3 py-1 rounded w-full"
+                      className="bg-red-500 text-white px-3 py-1 rounded w-full hover:bg-red-600"
                     >
                       Delete
                     </button>
