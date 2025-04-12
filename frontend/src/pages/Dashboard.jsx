@@ -96,7 +96,11 @@ const Dashboard = () => {
       {/* Top Navigation Bar */}
       <div className="flex items-center justify-between px-6 py-4 bg-white shadow-md sticky top-0 z-10">
         {/* Logo */}
-        <div className="text-2xl font-bold text-blue-600 hover:scale-110">🎓 UniSale</div>
+        <div className="text-2xl font-bold text-blue-600 hover:scale-110 hover:cursor-pointer"
+        onClick={() => navigate("/")}
+        >
+          🎓 UniSale
+        </div>
 
         {/* Search Bar */}
         <div className="relative w-1/2 hover:scale-105">
@@ -148,7 +152,7 @@ const Dashboard = () => {
       {/* Filters Section */}
       <div className="flex flex-col md:flex-row justify-center items-center gap-4 px-6 py-4 bg-white shadow-md rounded-lg mx-4 mt-4">
         {/* Category Filter */}
-        <div className="flex flex-col text-sm text-gray-600">
+        <div className="flex flex-col text-sm text-gray-600 hover:scale-105">
           <label htmlFor="category" className="mb-1 font-medium">Category</label>
           <select
             id="category"
@@ -171,7 +175,7 @@ const Dashboard = () => {
         </div>
 
         {/* Condition Filter */}
-        <div className="flex flex-col text-sm text-gray-600">
+        <div className="flex flex-col text-sm text-gray-600 hover:scale-105">
           <label htmlFor="condition" className="mb-1 font-medium">Condition</label>
           <select
             id="condition"
@@ -186,7 +190,7 @@ const Dashboard = () => {
         </div>
 
         {/* Sort Filter */}
-        <div className="flex flex-col text-sm text-gray-600">
+        <div className="flex flex-col text-sm text-gray-600 hover:scale-105">
           <label htmlFor="sort" className="mb-1 font-medium">Sort By</label>
           <select
             id="sort"
@@ -219,7 +223,7 @@ const Dashboard = () => {
       {/* Product Form */}
       {showForm && (
         <div className="flex justify-center mt-4">
-          <ProductForm setShowForm={setShowForm} onProductAdded={fetchProducts} />
+          <ProductForm setShowForm={setShowForm} userId={user.id} onProductAdded={fetchProducts} />
         </div>
       )}
 

@@ -130,7 +130,7 @@ const Wishlist = ({ userId }) => {
 
       {/* Filters for Wishlist */}
       <div className="flex flex-col md:flex-row justify-center items-center gap-4 mb-6">
-        <div className="flex flex-col">
+        <div className="flex flex-col hover:scale-105">
           <label className="text-sm font-medium text-gray-600 mb-1">Category</label>
           <select
             value={selectedCategory}
@@ -150,7 +150,7 @@ const Wishlist = ({ userId }) => {
             <option value="Gaming & Entertainment">Gaming & Entertainment</option>
           </select>
         </div>
-        <div className="flex flex-col">
+        <div className="flex flex-col hover:scale-105">
           <label className="text-sm font-medium text-gray-600 mb-1">Condition</label>
           <select
             value={selectedCondition}

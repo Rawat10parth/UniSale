@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getAuth } from "firebase/auth";
 import { toast } from "react-toastify";
-import ZoomableImage from "../components/ZoomableImage";
+import ProductImageCarousel from "../components/ProductImageCarousel";
+
 
 const ProductDetail = () => {
   const { productId } = useParams();
@@ -108,20 +109,20 @@ const ProductDetail = () => {
     setShowContactInfo(true);
   };
 
-  const isOwner = currentUser?.id === product.user_id;
+  const isOwner = currentUser?.id === product.users_id;
 
   return (
     <div className="min-h-screen bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
         <div className="md:flex">
           {/* Product Image */}
-          <div className="md:w-1/2 p-4">
-            <ZoomableImage
-              src={product.image_url}
-              alt={product.name}
-              aspectRatio="1/1"
-            />
-          </div>
+            <div className="md:w-1/2 p-4">
+              <ProductImageCarousel 
+                mainImage={product.image_url}
+                // In the future, you can pass an array of images if your API provides multiple product images
+                // images={product.images} 
+              />
+            </div>
           
           {/* Product Details */}
           <div className="md:w-1/2 p-8">
@@ -208,18 +209,17 @@ const ProductDetail = () => {
                 />
                 <div>
                   <p className="font-semibold text-lg">{seller.name}</p>
-                  <p className="text-gray-600">{seller.email}</p>
                 </div>
               </div>
               
-              {seller.phoneNumber && (
+              {/* {seller.phoneNumber && (
                 <div className="mt-4">
                   <p className="text-gray-700">
                     <span className="font-medium">Phone: </span>
                     {seller.phoneNumber}
                   </p>
                 </div>
-              )}
+              )} */}
               
               <div className="mt-6 bg-blue-50 p-4 rounded-lg border border-blue-100">
                 <p className="text-sm text-blue-800">
