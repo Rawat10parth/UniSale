@@ -2,6 +2,7 @@ import { useState } from "react";
 import PropTypes from "prop-types";
 import axios from "axios";
 import DragDropUploader from "./DragDropUploader";
+import Toast from './Toast';
 
 export default function ProductForm({ setShowForm, userId }) {
   const [product, setProduct] = useState({
@@ -14,6 +15,7 @@ export default function ProductForm({ setShowForm, userId }) {
   const [images, setImages] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -28,7 +30,11 @@ export default function ProductForm({ setShowForm, userId }) {
     e.preventDefault();
     
     if (images.length === 0) {
-      alert("Please upload at least one image for your product.");
+      setToast({
+        show: true,
+        message: 'Please upload at least one image for your product.',
+        type: 'error'
+      });
       return;
     }
     
@@ -65,7 +71,11 @@ export default function ProductForm({ setShowForm, userId }) {
           }
         );
         
-        alert(`Product uploaded successfully with ${images.length} images!`);
+        setToast({
+          show: true,
+          message: `Product uploaded successfully with ${images.length} images!`,
+          type: 'success'
+        });
         console.log(response.data);
       } else {
         // Fallback to single image upload if only one image
@@ -85,14 +95,22 @@ export default function ProductForm({ setShowForm, userId }) {
           }
         );
         
-        alert("Product uploaded successfully!");
+        setToast({
+          show: true,
+          message: 'Product uploaded successfully!',
+          type: 'success'
+        });
         console.log(response.data);
       }
       
-      setShowForm(false);
+      setTimeout(() => setShowForm(false), 2000); // Close form after 2 seconds
     } catch (error) {
       console.error("Upload failed", error.response?.data || error);
-      alert("Failed to upload product. Please try again.");
+      setToast({
+        show: true,
+        message: 'Failed to upload product. Please try again.',
+        type: 'error'
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -184,6 +202,14 @@ export default function ProductForm({ setShowForm, userId }) {
           ></div>
           <p className="text-sm text-center mt-1">Uploading... {uploadProgress}%</p>
         </div>
+      )}
+      
+      {toast.show && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast({ ...toast, show: false })}
+        />
       )}
       
       <div className="flex justify-between mt-6">

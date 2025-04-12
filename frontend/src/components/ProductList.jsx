@@ -115,14 +115,16 @@ const ProductList = ({ products, userId, fetchProducts }) => {
   };
 
   return (
-    <InfiniteScroll
-      dataLength={displayedProducts.length}
-      next={fetchMoreData}
-      hasMore={hasMore}
-      loader={<h4 className="text-center">Loading...</h4>}
-      endMessage={<p className="text-center">No more products.</p>}
-    >
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+    <div className="px-2 md:px-4 lg:px-6">
+      <InfiniteScroll
+        dataLength={displayedProducts.length}
+        next={fetchMoreData}
+        hasMore={hasMore}
+        loader={<h4 className="text-center">Loading...</h4>}
+        endMessage={<p className="text-center">No more products.</p>}
+      >
+    
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 mt-4 max-w-7xl mx-auto">
         {displayedProducts.length === 0 ? (
           <p>No products available.</p>
         ) : (
@@ -238,9 +240,10 @@ const ProductList = ({ products, userId, fetchProducts }) => {
               </button>
             </div>
           </form>
-        </div>
+        </div>  
       )}
     </InfiniteScroll>
+  </div>
   );
 };
 
