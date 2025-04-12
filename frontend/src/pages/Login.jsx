@@ -16,7 +16,7 @@ const Login = () => {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
 
-      toast.success("Login successful! Welcome " + user.email);
+      toast.success(`Login successful! Welcome ${user.displayName}`);
 
       // Redirect to Dashboard after successful login
       navigate("/dashboard");

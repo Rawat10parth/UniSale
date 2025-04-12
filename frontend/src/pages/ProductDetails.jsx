@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getAuth } from "firebase/auth";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { toast } from "react-toastify";
 import ProductImageCarousel from "../components/ProductImageCarousel";
-
 
 const ProductDetail = () => {
   const { productId } = useParams();
@@ -36,37 +35,78 @@ const ProductDetail = () => {
       }
     };
 
-    // Get current user info
-    const fetchCurrentUser = async () => {
-      try {
-        const auth = getAuth();
-        if (auth.currentUser) {
-          const email = auth.currentUser.email;
-          const response = await fetch(`http://127.0.0.1:5000/get-profile?email=${email}`);
-          const userData = await response.json();
-          setCurrentUser(userData);
-          
-          // Check if product is in user's wishlist
-          if (userData.id) {
-            const wishlistRes = await fetch(`http://127.0.0.1:5000/get-wishlist?user_id=${userData.id}`);
-            const wishlistData = await wishlistRes.json();
-            const isInWishlist = wishlistData.some(item => item.image_url === product?.image_url);
-            setInWishlist(isInWishlist);
-          }
+    fetchProductDetails();
+  }, [productId, navigate]);
+
+  // Add authentication state monitoring
+  useEffect(() => {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            try {
+                const response = await fetch(`http://127.0.0.1:5000/get-profile?email=${user.email}`);
+                if (!response.ok) {
+                    throw new Error('Failed to fetch user profile');
+                }
+                const userData = await response.json();
+                console.log("User data loaded:", userData); // Debug log
+                setCurrentUser(userData);
+            } catch (error) {
+                console.error("Error fetching user data:", error);
+                toast.error("Failed to load user profile");
+            }
+        } else {
+            setCurrentUser(null);
         }
-      } catch (error) {
-        console.error("Error fetching user data:", error);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Check wishlist status
+  useEffect(() => {
+    const checkWishlistStatus = async () => {
+      if (currentUser?.id && product?.image_url) {
+        try {
+          const wishlistRes = await fetch(`http://127.0.0.1:5000/get-wishlist?user_id=${currentUser.id}`);
+          const wishlistData = await wishlistRes.json();
+          const isInWishlist = wishlistData.some(item => item.image_url === product.image_url);
+          setInWishlist(isInWishlist);
+        } catch (error) {
+          console.error("Error checking wishlist status:", error);
+        }
       }
     };
 
-    fetchProductDetails();
-    fetchCurrentUser();
-  }, [productId, navigate, product?.image_url]);
+    checkWishlistStatus();
+  }, [currentUser?.id, product?.image_url]);
 
   const toggleWishlist = async () => {
-    if (!currentUser?.id || !product?.image_url) return;
+    const auth = getAuth();
+    console.log("Auth check:", {
+        currentUser: auth.currentUser,
+        userId: currentUser?.id,
+        productImageUrl: product?.image_url
+    });
+
+    if (!auth.currentUser) {
+        toast.error("Please login to use wishlist feature");
+        navigate("/login");
+        return;
+    }
+    
+    // This is where your error is triggering
+    if (!currentUser?.id || !product?.image_url) {
+        console.log("Validation failed:", {
+            currentUserId: currentUser?.id,
+            productImageUrl: product?.image_url
+        });
+        toast.error("Unable to process request. Please try again.");
+        return;
+    }
     
     try {
+        // Rest of the code...
       const response = await fetch("http://127.0.0.1:5000/toggle-wishlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -76,6 +116,8 @@ const ProductDetail = () => {
       if (response.ok) {
         setInWishlist(!inWishlist);
         toast.success(inWishlist ? "Removed from wishlist" : "Added to wishlist");
+      } else {
+        throw new Error("Failed to update wishlist");
       }
     } catch (error) {
       console.error("Error toggling wishlist:", error);
@@ -116,13 +158,16 @@ const ProductDetail = () => {
       <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
         <div className="md:flex">
           {/* Product Image */}
-            <div className="md:w-1/2 p-4">
-              <ProductImageCarousel 
-                mainImage={product.image_url}
-                // In the future, you can pass an array of images if your API provides multiple product images
-                // images={product.images} 
-              />
-            </div>
+          <div className="md:w-1/2 p-4">
+            <ProductImageCarousel 
+              mainImage={product.image_url}
+              images={product.images ? product.images.map((img, index) => ({
+                id: index,
+                src: img,
+                alt: `${product.name} view ${index + 1}`
+              })) : null}
+            />
+          </div>
           
           {/* Product Details */}
           <div className="md:w-1/2 p-8">

@@ -117,7 +117,7 @@ const Wishlist = ({ userId }) => {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 md:p-6">
       <button className="flex items-center gap-2 bg-blue-500 shadow-lg shadow-blue-500/50 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700 transition duration-200 hover:scale-105"
         onClick={() => navigate("/dashboard")}
       >
@@ -167,7 +167,7 @@ const Wishlist = ({ userId }) => {
       {filteredWishlist.length === 0 ? (
         <p className="text-gray-500 text-center">No items in your wishlist.</p>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 max-w-7xl mx-auto">
           {filteredWishlist.map((item, index) => (
             <div
               key={index}
