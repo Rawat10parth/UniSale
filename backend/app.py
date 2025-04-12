@@ -190,6 +190,19 @@ def gcs_upload_image(file, folder):
         return None
 
 
+def delete_from_gcs(public_url):
+    """Deletes an image from Google Cloud Storage using its public URL."""
+    try:
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(BUCKET_NAME)
+        # Extract blob name from public URL
+        blob_name = public_url.split(f'{BUCKET_NAME}/')[1]
+        blob = bucket.blob(blob_name)
+        blob.delete()
+    except Exception as e:
+        print(f"Error deleting image from GCS: {str(e)}")
+
+
 db = mysql.connector.connect(
     host="localhost", user="root", password="", database="unisale"
 )
@@ -391,10 +404,13 @@ def get_user_id():
 @app.route('/toggle-wishlist', methods=['POST'])
 def toggle_wishlist():
     data = request.json
+    print(f"Received wishlist toggle request: {data}")  # Add debug logging
+
     user_id = data.get("users_id")
     image_url = data.get("image_url")
 
     if not user_id or not image_url:
+        print(f"Missing fields - user_id: {user_id}, image_url: {image_url}")
         return jsonify({"error": "Missing fields"}), 400
 
     try:
@@ -407,35 +423,37 @@ def toggle_wishlist():
             (user_id, image_url)
         )
         existing = cursor.fetchone()
+        print(f"Existing wishlist item: {existing}")  # Add debug logging
 
         if existing:
-            # If it exists, remove it (toggle off)
             cursor.execute(
                 "DELETE FROM wishlist WHERE users_id = %s AND image_url = %s",
                 (user_id, image_url)
             )
-            conn.commit()
             result = {"message": "Removed from wishlist", "status": "removed"}
         else:
-            # Otherwise, add it (toggle on)
             cursor.execute(
                 "INSERT INTO wishlist (users_id, image_url) VALUES (%s, %s)",
                 (user_id, image_url)
             )
-            conn.commit()
             result = {"message": "Added to wishlist", "status": "added"}
 
+        conn.commit()
         cursor.close()
         conn.close()
+        print(f"Operation result: {result}")  # Add debug logging
         return jsonify(result), 200
 
     except Exception as e:
+        print(f"Error in toggle-wishlist: {str(e)}")
+        traceback.print_exc()  # Add full traceback
         return jsonify({"error": str(e)}), 500
 
 
 @app.route('/get-wishlist', methods=['GET'])
 def get_wishlist():
     user_id = request.args.get('user_id')
+    print(f"Received request for user_id: {user_id}")  # Add debug logging
 
     if not user_id:
         return jsonify({"error": "User ID is required"}), 400
@@ -444,57 +462,42 @@ def get_wishlist():
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # First, get the wishlist items (the image URLs) for the given user_id.
         cursor.execute(
             "SELECT image_url FROM wishlist WHERE users_id = %s",
             (user_id,)
         )
         wishlist_items = cursor.fetchall()
+        print(f"Found wishlist items: {wishlist_items}")  # Add debug logging
 
-        # If the wishlist is empty, clean up and return an empty list.
+        # If the wishlist is empty, clean up and return an empty list
         if not wishlist_items:
             cursor.close()
             conn.close()
             return jsonify([])
 
-        # Extract image URLs from the wishlist items.
         image_urls = [item[0] for item in wishlist_items]
+        print(f"Image URLs: {image_urls}")  # Add debug logging
 
-        # Build placeholders for the SQL query.
+        # Use dictionary cursor for better data handling
+        cursor = conn.cursor(dictionary=True)
         placeholders = ', '.join(['%s'] * len(image_urls))
-
-        # Get full product details for these image URLs.
-        cursor.execute(
-            f"""
-            SELECT p.id, p.name, p.description, p.price, p.state, p.category, p.image_url, p.user_id 
-            FROM products p 
-            WHERE p.image_url IN ({placeholders})
-            """,
-            tuple(image_urls)
-        )
-
+        
+        query = f"""
+            SELECT id, name, description, price, state, category, image_url, user_id 
+            FROM products 
+            WHERE image_url IN ({placeholders})
+        """
+        cursor.execute(query, tuple(image_urls))
         products = cursor.fetchall()
-
-        # Format the query results as a list of dictionaries.
-        result = []
-        for product in products:
-            result.append({
-                "id": product[0],
-                "name": product[1],
-                "description": product[2],
-                "price": product[3],
-                "state": product[4],
-                "category": product[5],
-                "image_url": product[6],
-                "user_id": product[7]
-            })
+        print(f"Found products: {products}")  # Add debug logging
 
         cursor.close()
         conn.close()
-        return jsonify(result)
+        return jsonify(products)  # Return products directly since we're using dictionary cursor
 
     except Exception as e:
-        print(f"Error fetching wishlist: {e}")
+        print(f"Error in get-wishlist: {str(e)}")
+        traceback.print_exc()  # Add full traceback
         return jsonify({"error": str(e)}), 500
 
 
@@ -506,9 +509,13 @@ def get_product_detail(product_id):
 
         # Get product details
         cursor.execute("""
-            SELECT id, user_id, name, description, category, state, price, image_url, created_at 
-            FROM products 
-            WHERE id = %s
+            SELECT p.id, p.user_id, p.name, p.description, p.category, p.state, 
+                   p.price, p.image_url as main_image, p.created_at,
+                   GROUP_CONCAT(pi.image_url) as additional_images
+            FROM products p
+            LEFT JOIN product_images pi ON p.id = pi.product_id
+            WHERE p.id = %s
+            GROUP BY p.id
         """, (product_id,))
         product = cursor.fetchone()
 
@@ -523,14 +530,24 @@ def get_product_detail(product_id):
         """, (product.get('user_id'),))
         seller = cursor.fetchone()
 
+        # Process the additional images
+        all_images = [product['main_image']]  # Start with main image
+        if product['additional_images']:
+            additional_images = product['additional_images'].split(',')
+            all_images.extend(additional_images)
+
+        # Format the product data
+        formatted_product = {
+            **product,
+            'images': all_images,  # Add all images array
+            'created_at': product['created_at'].isoformat() if product['created_at'] else None
+        }
+        del formatted_product['additional_images']  # Remove the concatenated string
+
         conn.close()
 
-        # Format dates for better readability
-        if product and 'created_at' in product and product['created_at']:
-            product['created_at'] = product['created_at'].isoformat()
-
         return jsonify({
-            "product": product,
+            "product": formatted_product,
             "seller": seller
         })
 
@@ -569,8 +586,6 @@ def get_user_by_id(users_id):
         return jsonify({"error": str(e)}), 500
 
 
-# Add this new route to your app.py file
-
 @app.route("/api/upload-multiple", methods=["POST"])
 def upload_multiple_images():
     if 'images[]' not in request.files:
@@ -580,76 +595,65 @@ def upload_multiple_images():
     if not files or len(files) == 0:
         return jsonify({"error": "No valid images found"}), 400
 
-    # Get product details from form data
-    user_id = request.form.get("user_id")
-    name = request.form.get("name")
-    description = request.form.get("description")
-    category = request.form.get("category")
-    state = request.form.get("state")
-    price = request.form.get("price")
-
-    if not all([user_id, name, description, category, state, price]):
-        return jsonify({"error": "All fields are required"}), 400
-
+    uploaded_urls = []
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Upload the first image and create the main product
-        main_image = files[0]
-        main_image_url = gcs_upload_image(main_image, "product-image")
+        # Upload all images first
+        for file in files:
+            image_url = gcs_upload_image(file, "product-image")
+            if not image_url:
+                # If any upload fails, delete previously uploaded images
+                for url in uploaded_urls:
+                    delete_from_gcs(url)  # You'll need to implement this function
+                return jsonify({"error": "Image upload failed"}), 500
+            uploaded_urls.append(image_url)
 
-        if not main_image_url:
-            return jsonify({"error": "Main image upload failed"}), 500
+        # Get product details from form data
+        user_id = request.form.get("user_id")
+        name = request.form.get("name")
+        description = request.form.get("description")
+        category = request.form.get("category")
+        state = request.form.get("state")
+        price = request.form.get("price")
 
-        # Insert the main product
+        if not all([user_id, name, description, category, state, price]):
+            # Delete all uploaded images if validation fails
+            for url in uploaded_urls:
+                delete_from_gcs(url)
+            return jsonify({"error": "All fields are required"}), 400
+
+        # Insert the main product with first image
         cursor.execute(
             "INSERT INTO products (user_id, name, description, category, state, price, image_url) "
             "VALUES (%s, %s, %s, %s, %s, %s, %s)",
-            (user_id, name, description, category, state, price, main_image_url)
+            (user_id, name, description, category, state, price, uploaded_urls[0])
         )
-        conn.commit()
-
-        # Get the product ID that was just created
         product_id = cursor.lastrowid
 
-        # Process additional images (if any)
-        additional_image_urls = []
-        if len(files) > 1:
-            # Create a new table to store additional images if it doesn't exist
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS product_images (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    product_id INT NOT NULL,
-                    image_url VARCHAR(255) NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+        # Insert additional images
+        if len(uploaded_urls) > 1:
+            for url in uploaded_urls[1:]:
+                cursor.execute(
+                    "INSERT INTO product_images (product_id, image_url) VALUES (%s, %s)",
+                    (product_id, url)
                 )
-            """)
-            conn.commit()
 
-            # Upload additional images
-            for i in range(1, len(files)):
-                image_url = gcs_upload_image(files[i], f"product-image/additional")
-                if image_url:
-                    cursor.execute(
-                        "INSERT INTO product_images (product_id, image_url) VALUES (%s, %s)",
-                        (product_id, image_url)
-                    )
-                    additional_image_urls.append(image_url)
-
-            conn.commit()
-
+        conn.commit()
         cursor.close()
         conn.close()
 
         return jsonify({
             "message": "Product uploaded successfully",
             "product_id": product_id,
-            "main_image": main_image_url,
-            "additional_images": additional_image_urls
+            "images": uploaded_urls
         }), 201
+
     except Exception as e:
+        # Delete all uploaded images if there's an error
+        for url in uploaded_urls:
+            delete_from_gcs(url)
         return jsonify({"error": str(e)}), 500
 
 
