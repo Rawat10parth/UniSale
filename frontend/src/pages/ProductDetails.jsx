@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { toast } from "react-toastify";
 import ProductImageCarousel from "../components/ProductImageCarousel";
+import Chat from '../components/Chat';
 
 const ProductDetail = () => {
   const { productId } = useParams();
@@ -257,18 +258,18 @@ const ProductDetail = () => {
                 </div>
               </div>
               
-              {/* {seller.phoneNumber && (
-                <div className="mt-4">
-                  <p className="text-gray-700">
-                    <span className="font-medium">Phone: </span>
-                    {seller.phoneNumber}
-                  </p>
-                </div>
-              )} */}
+              {/* Add Chat Component */}
+              {currentUser && (
+                <Chat
+                  currentUser={currentUser}
+                  seller={seller}
+                  productId={productId}
+                />
+              )}
               
               <div className="mt-6 bg-blue-50 p-4 rounded-lg border border-blue-100">
                 <p className="text-sm text-blue-800">
-                  <strong>Note:</strong> When contacting the seller, reference this product listing.
+                  <strong>Note:</strong> When contacting the seller, please be respectful and reference this product listing.
                 </p>
               </div>
             </div>
