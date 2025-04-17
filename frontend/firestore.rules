@@ -1,36 +1,12 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper function to check if user is authenticated
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
-    // Updated helper function to check if user is involved in a chat using chatId
-    function isInvolvedInChat(chatId) {
-      // Extract user IDs from chatId (assuming format: uid1_uid2_productId)
-      let parts = chatId.split('_');
+    match /chats/{chatId} {
+      allow read, write: if request.auth != null;
       
-      // Check if the current user's ID is one of the IDs in the chatId
-      return isAuthenticated() && 
-        (parts.hasAny([request.auth.uid]));
-    }
-
-    match /chats/{messageId} {
-      // Allow read if the user's ID is part of the chatId
-      allow read: if isAuthenticated() && 
-        isInvolvedInChat(resource.data.chatId);
-      
-      // Allow create if the sender is the current user
-      allow create: if isAuthenticated() && 
-        request.resource.data.senderId == request.auth.uid;
-        
-      allow update, delete: if false;
-    }
-
-    match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && request.auth.uid == userId;
+      match /messages/{messageId} {
+        allow read, write: if request.auth != null;
+      }
     }
   }
 }
