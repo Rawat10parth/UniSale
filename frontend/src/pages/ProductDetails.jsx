@@ -4,6 +4,8 @@ import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { toast } from "react-toastify";
 import ProductImageCarousel from "../components/ProductImageCarousel";
 import Chat from '../components/Chat';
+import '../styles/SharedBackground.css';
+import '../styles/ProductDetails.css';
 
 const ProductDetail = () => {
   const { productId } = useParams();
@@ -67,62 +69,75 @@ const ProductDetail = () => {
   // Check wishlist status
   useEffect(() => {
     const checkWishlistStatus = async () => {
-      if (currentUser?.id && product?.image_url) {
-        try {
-          const wishlistRes = await fetch(`http://127.0.0.1:5000/get-wishlist?user_id=${currentUser.id}`);
-          const wishlistData = await wishlistRes.json();
-          const isInWishlist = wishlistData.some(item => item.image_url === product.image_url);
-          setInWishlist(isInWishlist);
-        } catch (error) {
-          console.error("Error checking wishlist status:", error);
+      if (!currentUser?.id || !productId) return;
+
+      try {
+        const auth = getAuth();
+        const idToken = await auth.currentUser.getIdToken();
+        console.log("Checking wishlist status for product:", productId); // Debug log
+
+        const response = await fetch(
+          `http://127.0.0.1:5000/api/wishlist/check/${productId}`,
+          {
+            credentials: "include",
+            headers: {
+              "Authorization": `Bearer ${idToken}`,
+              "Access-Control-Allow-Origin": "http://localhost:5173"
+            }
+          }
+        );
+
+        const data = await response.json();
+        console.log("Wishlist status response:", data); // Debug log
+        
+        if (response.ok) {
+          setInWishlist(data.inWishlist);
         }
+      } catch (error) {
+        console.error("Error checking wishlist status:", error);
       }
     };
 
     checkWishlistStatus();
-  }, [currentUser?.id, product?.image_url]);
+  }, [currentUser?.id, productId]);
 
   const toggleWishlist = async () => {
     const auth = getAuth();
-    console.log("Auth check:", {
-        currentUser: auth.currentUser,
-        userId: currentUser?.id,
-        productImageUrl: product?.image_url
-    });
-
     if (!auth.currentUser) {
-        toast.error("Please login to use wishlist feature");
-        navigate("/login");
-        return;
+      toast.error("Please login to use wishlist feature");
+      navigate("/login");
+      return;
     }
-    
-    // This is where your error is triggering
-    if (!currentUser?.id || !product?.image_url) {
-        console.log("Validation failed:", {
-            currentUserId: currentUser?.id,
-            productImageUrl: product?.image_url
-        });
-        toast.error("Unable to process request. Please try again.");
-        return;
-    }
-    
+
     try {
-        // Rest of the code...
-      const response = await fetch("http://127.0.0.1:5000/toggle-wishlist", {
+      const idToken = await auth.currentUser.getIdToken();
+      console.log("Sending request with token:", idToken); // Debug log
+
+      const response = await fetch("http://127.0.0.1:5000/api/wishlist/toggle", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ users_id: currentUser.id, image_url: product.image_url }),
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${idToken}`,
+          "Access-Control-Allow-Origin": "http://localhost:5173"
+        },
+        body: JSON.stringify({
+          productId: productId,
+          userId: currentUser.id
+        })
       });
+
+      const data = await response.json();
       
       if (response.ok) {
         setInWishlist(!inWishlist);
-        toast.success(inWishlist ? "Removed from wishlist" : "Added to wishlist");
+        toast.success(data.message || (inWishlist ? "Removed from wishlist" : "Added to wishlist"));
       } else {
-        throw new Error("Failed to update wishlist");
+        throw new Error(data.message || "Failed to update wishlist");
       }
     } catch (error) {
       console.error("Error toggling wishlist:", error);
-      toast.error("Failed to update wishlist");
+      toast.error(error.message || "Failed to update wishlist");
     }
   };
 
@@ -164,22 +179,30 @@ const ProductDetail = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-500"></div>
+      <div className="page-bg min-h-screen flex items-center justify-center">
+        <div className="geometric-pattern"></div>
+        <div className="light-effects"></div>
+        <div className="relative z-10">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-400"></div>
+        </div>
       </div>
     );
   }
 
   if (!product) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center">
-        <h2 className="text-2xl font-bold text-gray-700 mb-4">Product Not Found</h2>
-        <button 
-          onClick={() => navigate("/dashboard")}
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-        >
-          Back to Dashboard
-        </button>
+      <div className="page-bg min-h-screen flex flex-col items-center justify-center">
+        <div className="geometric-pattern"></div>
+        <div className="light-effects"></div>
+        <div className="relative z-10 text-center">
+          <h2 className="text-3xl font-bold text-white mb-6">Product Not Found</h2>
+          <button 
+            onClick={() => navigate("/dashboard")}
+            className="bg-blue-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-blue-700 transition duration-300 hover:scale-105 shadow-lg shadow-blue-500/25"
+          >
+            Back to Dashboard
+          </button>
+        </div>
       </div>
     );
   }
@@ -191,134 +214,148 @@ const ProductDetail = () => {
   const isOwner = currentUser?.id === product.users_id;
 
   return (
-    <div className="min-h-screen bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-md overflow-hidden">
-        <div className="md:flex">
-          {/* Product Image */}
-          <div className="md:w-1/2 p-4">
-            <ProductImageCarousel 
-              mainImage={product.image_url}
-              images={product.images ? product.images.map((img, index) => ({
-                id: index,
-                src: img,
-                alt: `${product.name} view ${index + 1}`
-              })) : null}
-            />
+    <div className="product-bg min-h-screen py-12 px-4 sm:px-6 lg:px-8">
+      <div className="geometric-pattern"></div>
+      <div className="light-effects"></div>
+
+      {/* New Back Button */}
+      <button
+        onClick={() => navigate("/dashboard")}
+        className="floating-back-button glass-effect text-white px-6 py-3 rounded-xl font-medium hover:bg-white/10 transition-colors duration-300 flex items-center gap-2"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+        </svg>
+        Back to Dashboard
+      </button>
+      
+      <div className="relative z-10 max-w-6xl mx-auto">
+        <div className="glass-effect rounded-2xl overflow-hidden">
+          <div className="md:flex">
+            {/* Product Image Section */}
+            <div className="md:w-1/2 p-6">
+              <div className="product-image-container">
+                <ProductImageCarousel 
+                  mainImage={product.image_url}
+                  images={product.images ? product.images.map((img, index) => ({
+                    id: index,
+                    src: img,
+                    alt: `${product.name} view ${index + 1}`
+                  })) : null}
+                />
+              </div>
+            </div>
+            
+            {/* Product Details Section */}
+            <div className="md:w-1/2 p-8">
+              <div className="flex justify-between items-start">
+                <h2 className="text-3xl font-bold text-white">{product.name}</h2>
+                <span className="bg-emerald-500/20 text-emerald-300 text-sm font-medium px-4 py-1.5 rounded-full border border-emerald-500/30">
+                  {product.state}
+                </span>
+              </div>
+              
+              <div className="mt-4">
+                <span className="price-tag text-4xl font-bold text-emerald-400">
+                  ₹{product.price}
+                </span>
+              </div>
+              
+              <div className="mt-8">
+                <h3 className="text-xl font-semibold text-white/90">Description</h3>
+                <p className="mt-2 text-white/70 leading-relaxed">{product.description}</p>
+              </div>
+              
+              <div className="mt-8">
+                <h3 className="text-xl font-semibold text-white/90">Details</h3>
+                <div className="mt-4 grid grid-cols-2 gap-6">
+                  <div className="bg-white/5 rounded-xl p-4">
+                    <span className="text-white/60">Category</span>
+                    <p className="font-medium text-white mt-1">{product.category}</p>
+                  </div>
+                  <div className="bg-white/5 rounded-xl p-4">
+                    <span className="text-white/60">Condition</span>
+                    <p className="font-medium text-white mt-1">{product.state}</p>
+                  </div>
+                  <div className="bg-white/5 rounded-xl p-4 col-span-2">
+                    <span className="text-white/60">Listed On</span>
+                    <p className="font-medium text-white mt-1">
+                      {new Date(product.created_at).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      })}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="mt-8 space-y-3">
+                {!isOwner && (
+                  <>
+                    <button
+                      onClick={handleAddToCart}
+                      className="w-full bg-blue-600 text-white py-3.5 px-4 rounded-xl font-medium hover:bg-blue-700 transition duration-300 hover:scale-105 shadow-lg shadow-blue-500/25"
+                    >
+                      Add to Cart
+                    </button>
+                    <button
+                      onClick={handleContactSeller}
+                      className="w-full bg-emerald-600 text-white py-3.5 px-4 rounded-xl font-medium hover:bg-emerald-700 transition duration-300 hover:scale-105 shadow-lg shadow-emerald-500/25"
+                    >
+                      Contact Seller
+                    </button>
+                  </>
+                )}
+
+                <button
+                  onClick={toggleWishlist}
+                  className={`w-full py-3.5 px-4 rounded-xl font-medium transition duration-300 hover:scale-105 ${
+                    inWishlist
+                      ? "bg-red-500/20 text-red-300 hover:bg-red-500/30 border border-red-500/30"
+                      : "bg-white/5 text-white hover:bg-white/10 border border-white/10"
+                  }`}
+                >
+                  {inWishlist ? "Remove from Wishlist" : "Add to Wishlist"}
+                </button>
+              </div>
+            </div>
           </div>
           
-          {/* Product Details */}
-          <div className="md:w-1/2 p-8">
-            <div className="flex justify-between items-start">
-              <h2 className="text-3xl font-bold text-gray-800">{product.name}</h2>
-              <span className="bg-green-100 text-green-800 text-sm font-medium px-3 py-1 rounded-full">
-                {product.state}
-              </span>
-            </div>
-            
-            <div className="mt-4">
-              <span className="text-3xl font-bold text-green-600">₹{product.price}</span>
-            </div>
-            
-            <div className="mt-6">
-              <h3 className="text-lg font-semibold text-gray-700">Description</h3>
-              <p className="mt-2 text-gray-600">{product.description}</p>
-            </div>
-            
-            <div className="mt-6">
-              <h3 className="text-lg font-semibold text-gray-700">Details</h3>
-              <div className="mt-2 grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-gray-500">Category:</span>
-                  <p className="font-medium text-gray-800">{product.category}</p>
+          {/* Seller Contact Info Section */}
+          {showContactInfo && seller && (
+            <div className="border-t border-white/10 p-8">
+              <h3 className="text-2xl font-bold text-white mb-6">Seller Information</h3>
+              <div className="glass-effect p-6 rounded-xl">
+                <div className="flex items-center mb-6">
+                  <img
+                    src={seller.profilePic || "/person-circle.svg"}
+                    alt={seller.name}
+                    className="w-14 h-14 rounded-full mr-4 border-2 border-white/20"
+                  />
+                  <div>
+                    <p className="font-semibold text-xl text-white">{seller.name}</p>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-gray-500">Condition:</span>
-                  <p className="font-medium text-gray-800">{product.state}</p>
-                </div>
-                <div>
-                  <span className="text-gray-500">Listed On:</span>
-                  <p className="font-medium text-gray-800">
-                    {new Date(product.created_at).toLocaleDateString()}
+                
+                {currentUser && (
+                  <Chat
+                    currentUser={currentUser}
+                    seller={seller}
+                    productId={productId}
+                  />
+                )}
+                
+                <div className="mt-6 bg-blue-500/10 border border-blue-500/20 p-4 rounded-xl">
+                  <p className="text-sm text-blue-300">
+                    <strong>Note:</strong> When contacting the seller, please be respectful and reference this product listing.
                   </p>
                 </div>
               </div>
             </div>
-            
-            {/* Action Buttons */}
-            <div className="mt-8 space-y-3">
-              {/* Don't show contact button if user is the owner */}
-              {!isOwner && (
-                <>
-                  <button
-                    onClick={handleAddToCart}
-                    className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition shadow-md hover:shadow-lg"
-                  >
-                    Add to Cart
-                  </button>
-                  <button
-                    onClick={handleContactSeller}
-                    className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-green-700 transition shadow-md hover:shadow-lg"
-                  >
-                    Contact Seller
-                  </button>
-                </>
-              )}
-
-              <button
-                onClick={toggleWishlist}
-                className={`w-full py-3 px-4 rounded-lg font-medium transition shadow-md hover:shadow-lg ${
-                  inWishlist
-                    ? "bg-red-500 text-white hover:bg-red-600"
-                    : "bg-gray-100 text-gray-800 hover:bg-gray-200"
-                }`}
-              >
-                {inWishlist ? "Remove from Wishlist" : "Add to Wishlist"}
-              </button>
-              
-              <button
-                onClick={() => navigate(-1)}
-                className="w-full bg-gray-200 text-gray-800 py-3 px-4 rounded-lg font-medium hover:bg-gray-300 transition"
-              >
-                Back
-              </button>
-
-            </div>
-          </div>
+          )}
         </div>
-        
-        {/* Seller Contact Info (Conditional) */}
-        {showContactInfo && seller && (
-          <div className="border-t border-gray-200 p-8">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">Seller Information</h3>
-            <div className="bg-gray-50 p-6 rounded-lg">
-              <div className="flex items-center mb-4">
-                <img
-                  src={seller.profilePic || "/person-circle.svg"}
-                  alt={seller.name}
-                  className="w-12 h-12 rounded-full mr-4 border-2 border-gray-300"
-                />
-                <div>
-                  <p className="font-semibold text-lg">{seller.name}</p>
-                </div>
-              </div>
-              
-              {/* Add Chat Component */}
-              {currentUser && (
-                <Chat
-                  currentUser={currentUser}
-                  seller={seller}
-                  productId={productId}
-                />
-              )}
-              
-              <div className="mt-6 bg-blue-50 p-4 rounded-lg border border-blue-100">
-                <p className="text-sm text-blue-800">
-                  <strong>Note:</strong> When contacting the seller, please be respectful and reference this product listing.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
