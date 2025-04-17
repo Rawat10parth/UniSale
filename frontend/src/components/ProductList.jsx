@@ -11,7 +11,7 @@ const ProductList = ({ products, userId, fetchProducts }) => {
   const [editProduct, setEditProduct] = useState(null);
   const [displayedProducts, setDisplayedProducts] = useState([]);
   const [hasMore, setHasMore] = useState(true);
-  const ITEMS_PER_LOAD = 9;
+  const ITEMS_PER_LOAD = 12;
 
   // Fetch user's wishlist
   useEffect(() => {
@@ -115,86 +115,117 @@ const ProductList = ({ products, userId, fetchProducts }) => {
   };
 
   return (
-    <div className="px-2 md:px-4 lg:px-6">
+    <div className="max-w-7xl mx-auto">
       <InfiniteScroll
         dataLength={displayedProducts.length}
         next={fetchMoreData}
         hasMore={hasMore}
-        loader={<h4 className="text-center">Loading...</h4>}
-        endMessage={<p className="text-center">No more products.</p>}
+        loader={
+          <div className="flex justify-center py-6">
+            <div className="elegant-spinner"></div>
+          </div>
+        }
+        endMessage={
+          <p className="text-center text-white/60 py-6">You have seen all products</p>
+        }
       >
-    
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 mt-4 max-w-7xl mx-auto">
-        {displayedProducts.length === 0 ? (
-          <p>No products available.</p>
-        ) : (
-          displayedProducts.map((product) => {
-            const inWishlist = wishlistItems.includes(product.image_url);
-            return (
-              <div
-                key={product.id}
-                className="border p-4 rounded-lg shadow-md transition"
-              >
-                 <div 
-                  onClick={() => navigate(`/product/${product.id}`)}
-                  className="cursor-pointer"
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {displayedProducts.length === 0 ? (
+            <div className="col-span-full text-center py-12">
+              <p className="text-white/80 text-lg">No products available matching your criteria.</p>
+            </div>
+          ) : (
+            displayedProducts.map((product) => {
+              const inWishlist = wishlistItems.includes(product.image_url);
+              return (
+                <div
+                  key={product.id}
+                  className="glass-effect rounded-xl overflow-hidden transition-all duration-300 shadow-lg hover:shadow-xl"
                 >
-                {/* Replace the previous image container with EnhancedImage */}
-                <ZoomableImage 
-                  src={product.image_url}
-                  alt={product.name}
-                  aspectRatio="4/3"
-                />
-                
-                <h3 className="text-lg font-semibold">{product.name}</h3>
-                <p className="text-gray-600 text-sm">{product.description}</p>
-                <p className="text-sm italic text-gray-500">{product.category}</p>
-                <p className="text-sm italic text-gray-500">{product.state}</p>
-                <p className="text-green-600 font-bold mt-1">₹{product.price}</p>
-                </div>
-                <button
-                  onClick={() => toggleWishlist(product.image_url)}
-                  className={`mt-2 px-4 py-2 rounded text-white w-full ${
-                    inWishlist ? "bg-red-500 hover:bg-red-600" : "bg-blue-500 hover:bg-blue-600"
-                  }`}
-                >
-                  {inWishlist ? "Remove from Wishlist" : "Add to Wishlist"}
-                </button>
-                {product.user_id === userId && (
-                  <div className="flex gap-2 mt-2">
-                    <button
-                      onClick={() => setEditProduct(product)}
-                      className="bg-yellow-400 text-white px-3 py-1 rounded w-full hover:bg-yellow-500"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(product.id)}
-                      className="bg-red-500 text-white px-3 py-1 rounded w-full hover:bg-red-600"
-                    >
-                      Delete
-                    </button>
+                  <div 
+                    onClick={() => navigate(`/product/${product.id}`)}
+                    className="cursor-pointer"
+                  >
+                    {/* Product Image with Hover Effect */}
+                    <div className="relative overflow-hidden aspect-[4/3]">
+                      <ZoomableImage 
+                        src={product.image_url}
+                        alt={product.name}
+                        aspectRatio="4/3"
+                      />
+                      
+                      {/* Category & Condition Badges */}
+                      <div className="absolute top-4 left-4 flex gap-2">
+                        <span className={`badge ${product.state === 'New' ? 'badge-new' : 'badge-used'}`}>
+                          {product.state}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {/* Product Details */}
+                    <div className="p-4">
+                      <div className="flex justify-between items-start mb-1">
+                        <h3 className="text-lg font-medium text-white">{product.name}</h3>
+                        <p className="text-lg font-bold text-green-400">₹{product.price}</p>
+                      </div>
+                      <p className="text-white/70 text-sm mb-2 line-clamp-2">{product.description}</p>
+                      <p className="text-xs text-white/50 mb-2">{product.category}</p>
+                    </div>
                   </div>
-                )}
-              </div>
-            );
-          })
-        )}
-      </div>
+                  
+                  {/* Action Buttons */}
+                  <div className="p-4 pt-0">
+                    <button
+                      onClick={() => toggleWishlist(product.image_url)}
+                      className={`w-full py-2.5 px-4 rounded-lg mb-2 transition-all duration-300 flex items-center justify-center gap-2 ${
+                        inWishlist 
+                          ? "bg-red-500/20 text-red-300 hover:bg-red-500/30 border border-red-500/30" 
+                          : "bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 border border-blue-500/30"
+                      }`}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path fillRule="evenodd" d="M8 1.314C12.438-3.248 23.534 4.735 8 15-7.534 4.736 3.562-3.248 8 1.314z"/>
+                      </svg>
+                      {inWishlist ? "Remove from Wishlist" : "Add to Wishlist"}
+                    </button>
+                    
+                    {product.user_id === userId && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setEditProduct(product)}
+                          className="w-1/2 py-2.5 rounded-lg bg-yellow-500/20 text-yellow-300 hover:bg-yellow-500/30 border border-yellow-500/30 transition-all duration-300"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(product.id)}
+                          className="w-1/2 py-2.5 rounded-lg bg-red-500/20 text-red-300 hover:bg-red-500/30 border border-red-500/30 transition-all duration-300"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </InfiniteScroll>
 
       {/* Edit Product Modal */}
       {editProduct && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
           <form
             onSubmit={handleEditSubmit}
-            className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md"
+            className="glass-effect border border-white/10 p-6 rounded-xl shadow-xl w-full max-w-md mx-4"
           >
-            <h3 className="text-xl font-bold mb-4">Edit Product</h3>
+            <h3 className="text-xl font-bold mb-4 text-white">Edit Product</h3>
             <input
               type="text"
               value={editProduct.name}
               onChange={(e) => setEditProduct({ ...editProduct, name: e.target.value })}
-              className="border p-2 w-full mb-2 rounded"
+              className="input-field w-full mb-3"
               placeholder="Product Name"
               required
             />
@@ -203,47 +234,47 @@ const ProductList = ({ products, userId, fetchProducts }) => {
               onChange={(e) =>
                 setEditProduct({ ...editProduct, description: e.target.value })
               }
-              className="border p-2 w-full mb-2 rounded"
+              className="input-field w-full mb-3"
               placeholder="Description"
+              rows="3"
               required
             />
             <input
               type="number"
               value={editProduct.price}
               onChange={(e) => setEditProduct({ ...editProduct, price: e.target.value })}
-              className="border p-2 w-full mb-2 rounded"
+              className="input-field w-full mb-3"
               placeholder="Price"
               required
             />
             <select
               value={editProduct.state || ""}
               onChange={(e) => setEditProduct({ ...editProduct, state: e.target.value })}
-              className="border p-2 w-full mb-2 rounded"
+              className="input-field w-full mb-4"
             >
-              <option value="">Select Condition</option>
-              <option value="New">New</option>
-              <option value="Used">Used</option>
+              <option value="" className="bg-gray-800">Select Condition</option>
+              <option value="New" className="bg-gray-800">New</option>
+              <option value="Used" className="bg-gray-800">Used</option>
             </select>
             <div className="flex justify-end space-x-3">
               <button
                 type="button"
-                className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                className="px-4 py-2 bg-white/10 text-white/80 rounded-lg hover:bg-white/20 transition-colors duration-300"
                 onClick={() => setEditProduct(null)}
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-300"
               >
-                Save
+                Save Changes
               </button>
             </div>
           </form>
         </div>  
       )}
-    </InfiniteScroll>
-  </div>
+    </div>
   );
 };
 
