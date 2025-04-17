@@ -705,69 +705,60 @@ def get_cart():
         print(f"Error fetching cart: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
-@app.route('/api/cart/add', methods=['POST', 'OPTIONS'])
-def add_to_cart():
-    # Handle preflight request
-    if request.method == 'OPTIONS':
-        return '', 200
-        
+@app.route('/api/cart/<int:user_id>', methods=['GET'])
+def get_cart_items(user_id):
     try:
-        # Get auth token from headers
-        auth_header = request.headers.get('Authorization')
-        if not auth_header or not auth_header.startswith('Bearer '):
-            return jsonify({"error": "No token provided"}), 401
-            
-        token = auth_header.split(' ')[1]
-        user_id = authenticate_token(token)
-        
-        if not user_id:
-            return jsonify({"error": "Invalid token"}), 401
-
-        data = request.json
-        product_id = data.get('productId')
-        quantity = data.get('quantity', 1)
-
-        if not product_id:
-            return jsonify({"error": "Product ID is required"}), 400
-
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
-
-        # Check if product exists and is available
-        cursor.execute("SELECT user_id FROM products WHERE id = %s", (product_id,))
-        product = cursor.fetchone()
         
-        if not product:
-            return jsonify({"error": "Product not found"}), 404
-            
-        if product['user_id'] == user_id:
-            return jsonify({"error": "Cannot add your own product to cart"}), 400
+        cursor.execute("""
+            SELECT c.*, p.name, p.price, p.image_url, p.description 
+            FROM cart c 
+            JOIN products p ON c.product_id = p.id 
+            WHERE c.user_id = %s
+        """, (user_id,))
+        
+        cart_items = cursor.fetchall()
+        conn.close()
+        
+        return jsonify(cart_items)
+    except Exception as e:
+        print(f"Error fetching cart items: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
-        # Check if product already in cart
+@app.route('/api/cart/add', methods=['POST'])
+def add_to_cart():
+    data = request.get_json()
+    user_id = int(data.get('userId'))  # Convert to int
+    product_id = int(data.get('productId'))  # Convert to int
+    quantity = int(data.get('quantity', 1))  # Convert to int
+    
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        
+        # Check if item exists in cart
         cursor.execute(
-            "SELECT id, quantity FROM cart WHERE user_id = %s AND product_id = %s",
+            "SELECT * FROM cart WHERE user_id = %s AND product_id = %s",
             (user_id, product_id)
         )
         existing_item = cursor.fetchone()
-
+        
         if existing_item:
-            # Update quantity
-            new_quantity = existing_item['quantity'] + quantity
             cursor.execute(
-                "UPDATE cart SET quantity = %s WHERE id = %s",
-                (new_quantity, existing_item['id'])
+                "UPDATE cart SET quantity = quantity + %s WHERE user_id = %s AND product_id = %s",
+                (quantity, user_id, product_id)
             )
         else:
-            # Add new item
             cursor.execute(
                 "INSERT INTO cart (user_id, product_id, quantity) VALUES (%s, %s, %s)",
                 (user_id, product_id, quantity)
             )
-
+            
         conn.commit()
         conn.close()
-
-        return jsonify({"message": "Product added to cart successfully"})
+        return jsonify({"message": "Added to cart successfully"})
+        
     except Exception as e:
         print(f"Error adding to cart: {str(e)}")
         return jsonify({"error": str(e)}), 500
@@ -775,28 +766,65 @@ def add_to_cart():
 @app.route('/api/cart/remove', methods=['POST'])
 def remove_from_cart():
     try:
-        user_id = get_current_user_id()
-        if not user_id:
-            return jsonify({"error": "Unauthorized"}), 401
-
         data = request.json
+        user_id = data.get('userId')
         product_id = data.get('productId')
+
+        if not user_id or not product_id:
+            return jsonify({"error": "User ID and Product ID are required"}), 400
 
         conn = get_db_connection()
         cursor = conn.cursor()
 
+        # First check if the item exists in the cart
+        cursor.execute(
+            "SELECT * FROM cart WHERE user_id = %s AND product_id = %s",
+            (user_id, product_id)
+        )
+        if not cursor.fetchone():
+            conn.close()
+            return jsonify({"error": "Item not found in cart"}), 404
+
+        # Delete the item from cart
         cursor.execute(
             "DELETE FROM cart WHERE user_id = %s AND product_id = %s",
             (user_id, product_id)
         )
 
         conn.commit()
+        cursor.close()
         conn.close()
 
-        return jsonify({"message": "Product removed from cart successfully"})
+        return jsonify({"message": "Item removed successfully"})
+
     except Exception as e:
-        print(f"Error removing from cart: {str(e)}")
+        print(f"Error removing item from cart: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+@app.route('/api/wishlist/check/<product_id>', methods=['POST'])
+def check_wishlist_status(product_id):
+    data = request.get_json()
+    user_id = data.get('userId')
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute(
+            "SELECT * FROM wishlist WHERE users_id = %s AND product_id = %s",
+            (user_id, product_id)
+        )
+        wishlist_item = cursor.fetchone()
+
+        conn.close()
+
+        if wishlist_item:
+            return jsonify({"status": "exists"})
+        else:
+            return jsonify({"status": "not_exists"})
+    except Exception as e:
+        print(f"Error checking wishlist status: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
 
 # Checkout Routes
 @app.route('/api/checkout', methods=['POST'])
