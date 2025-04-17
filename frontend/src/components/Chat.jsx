@@ -1,115 +1,93 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
-import { collection, addDoc, query, where, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase.js';
 import { getAuth } from 'firebase/auth';
 import { toast } from 'react-toastify';
+import { startChat, subscribeToMessages, sendMessage } from '../services/chatService';
 
 const Chat = ({ currentUser, seller, productId }) => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [chatId, setChatId] = useState(null);
+  const messagesEndRef = useRef(null);
   const auth = getAuth();
 
-  // Ensure consistent chatId format
-  const generateChatId = (userId1, userId2, prodId) => {
-    return [userId1, userId2, prodId].sort().join('_');
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // Initialize chat
   useEffect(() => {
-    const user = auth.currentUser; // Store current user in a variable
-    if (!user) {
-      setError('Authentication required to chat');
-      setLoading(false);
-      return;
-    }
-
-    const chatId = generateChatId(user.uid, seller?.id, productId);
-
-    try {
-      const q = query(
-        collection(db, 'chats'),
-        where('chatId', '==', chatId),
-        orderBy('timestamp', 'asc')
-      );
-
-      const unsubscribe = onSnapshot(
-        q,
-        (snapshot) => {
-          console.log("Query successful - messages:", snapshot.docs.length);
-          const messageList = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
-          setMessages(messageList);
+    const initializeChat = async () => {
+      try {
+        const user = auth.currentUser;
+        if (!user) {
+          setError('Authentication required to chat');
           setLoading(false);
-          setError(null);
-        },
-        (error) => {
-          console.error('Error code:', error.code);
-          console.error('Error message:', error.message);
-          console.error('Full error:', error);
-          
-          if (error.code === 'permission-denied') {
-            setError('Permission denied. You may not have access to this conversation.');
-          } else {
-            setError('Failed to load messages. Please try again.');
-          }
-          setLoading(false);
-          toast.error('Failed to load messages');
+          return;
         }
-      );
 
-      return () => unsubscribe();
-    } catch (error) {
-      console.error('Error setting up chat:', error);
-      setError('Failed to initialize chat');
-      setLoading(false);
-      toast.error('Failed to initialize chat');
-    }
-  }, [seller?.id, productId, auth.currentUser]); // Added auth.currentUser to dependencies
+        console.log('Initializing chat:', {
+          currentUser: user.uid,
+          seller: seller.id,
+          productId
+        });
 
-  const sendMessage = async (e) => {
+        // Pass seller.id to startChat
+        const chatData = await startChat(productId, seller.id);
+        setChatId(chatData.id);
+
+        // Subscribe to messages
+        const unsubscribe = subscribeToMessages(chatData.id, (newMessages) => {
+          setMessages(newMessages);
+          scrollToBottom();
+        });
+
+        setLoading(false);
+
+        return () => unsubscribe();
+      } catch (error) {
+        console.error('Chat initialization error:', error);
+        setError('Failed to initialize chat. Please try again.');
+        setLoading(false);
+      }
+    };
+
+    initializeChat();
+  }, [auth.currentUser, productId, seller.id]);
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim()) return;
-    
-    if (!auth.currentUser) {
-      toast.error('Please login to send messages');
+    const messageText = newMessage.trim();
+    if (!messageText) return;
+
+    const user = auth.currentUser;
+    if (!user || !chatId) {
+      toast.error('Unable to send message');
       return;
     }
 
-    const chatId = generateChatId(auth.currentUser.uid, seller.id, productId);
-
     try {
-      await addDoc(collection(db, 'chats'), {
-        chatId,
-        buyerId: currentUser.id === seller.id ? seller.id : auth.currentUser.uid,
-        sellerId: seller.id,
-        productId,
-        productName: "Product", // Set proper product name if available
-        text: newMessage.trim(),
-        timestamp: serverTimestamp(),
-        senderId: auth.currentUser.uid,
-        senderName: currentUser.name || 'Anonymous',
-        receiverName: seller.name || 'Seller',
-        read: false
-      });
-      
-      setNewMessage('');
-      setError(null);
+      setNewMessage(''); // Clear input early for better UX
+      await sendMessage(chatId, messageText);
     } catch (error) {
       console.error('Error sending message:', error);
-      console.error('Error code:', error.code);
-      console.error('Error message:', error.message);
-      setError('Failed to send message');
       toast.error('Failed to send message');
+      setNewMessage(messageText); // Restore message if failed
     }
   };
 
   return (
     <div className="border rounded-lg p-4 mt-4">
-      <h3 className="text-lg font-semibold mb-4">Chat with Seller</h3>
+      <h3 className="text-lg font-semibold mb-4">
+        {currentUser.id === seller.id ? 'Chat with Buyer' : 'Chat with Seller'}
+      </h3>
       
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
@@ -124,44 +102,52 @@ const Chat = ({ currentUser, seller, productId }) => {
           </div>
         ) : messages.length === 0 ? (
           <div className="text-center text-gray-500 py-4">
-            No messages yet. Start the conversation!
+            {currentUser.id === seller.id ? 
+              'No messages from buyers yet.' : 
+              'No messages yet. Start the conversation!'}
           </div>
         ) : (
-          messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`mb-2 p-2 rounded-lg max-w-[80%] ${
-                msg.senderId === auth.currentUser?.uid
-                  ? 'ml-auto bg-blue-500 text-white'
-                  : 'bg-gray-200'
-              }`}
-            >
-              <div className="text-xs opacity-75 mb-1">
-                {msg.senderId === auth.currentUser?.uid ? 'You' : msg.senderName}
+          <>
+            {messages.map((msg) => (
+              <div
+                key={msg.id}
+                className={`mb-2 p-2 rounded-lg max-w-[80%] ${
+                  msg.sender.id === auth.currentUser?.uid
+                    ? 'ml-auto bg-blue-500 text-white'
+                    : 'bg-gray-200'
+                }`}
+              >
+                <div className="text-xs opacity-75 mb-1">
+                  {msg.sender.id === auth.currentUser?.uid ? 'You' : msg.sender.name}
+                </div>
+                <div>{msg.text}</div>
+                <div className="text-xs opacity-75 mt-1">
+                  {new Date(msg.createdAt).toLocaleTimeString()}
+                </div>
               </div>
-              {msg.text}
-            </div>
-          ))
+            ))}
+            <div ref={messagesEndRef} />
+          </>
         )}
       </div>
 
-      <form onSubmit={sendMessage} className="flex gap-2">
+      <form onSubmit={handleSendMessage} className="flex gap-2">
         <input
           type="text"
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
           className="flex-1 border rounded-lg px-3 py-2"
           placeholder="Type your message..."
-          disabled={!!error || !auth.currentUser}
+          disabled={!!error || !auth.currentUser || !chatId}
         />
         <button
           type="submit"
           className={`px-4 py-2 rounded-lg ${
-            error || !auth.currentUser
+            error || !auth.currentUser || !chatId
               ? 'bg-gray-400 cursor-not-allowed'
               : 'bg-blue-500 hover:bg-blue-600'
           } text-white`}
-          disabled={!!error || !auth.currentUser}
+          disabled={!!error || !auth.currentUser || !chatId}
         >
           Send
         </button>
