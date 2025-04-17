@@ -19,23 +19,26 @@ const Cart = () => {
         return;
       }
 
-      // Get fresh token
-      const idToken = await user.getIdToken(true);
-      
-      const response = await fetch('http://127.0.0.1:5000/api/cart', {
+      // Get the user profile to get the numeric user ID
+      const profileResponse = await fetch(`http://127.0.0.1:5000/get-profile?email=${user.email}`);
+      if (!profileResponse.ok) {
+        throw new Error('Failed to fetch user profile');
+      }
+      const userProfile = await profileResponse.json();
+      const userId = parseInt(userProfile.id); // Ensure numeric ID
+
+      // Fetch cart items with numeric user ID
+      const response = await fetch(`http://127.0.0.1:5000/api/cart/${userId}`, {
         headers: {
-          'Authorization': `Bearer ${idToken}`,
           'Content-Type': 'application/json'
         }
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch cart items');
+        throw new Error('Failed to fetch cart items');
       }
 
       const data = await response.json();
-      console.log('Cart items:', data); // Debug log
       setCartItems(data);
     } catch (error) {
       console.error('Error fetching cart:', error);
@@ -57,25 +60,36 @@ const Cart = () => {
         return;
       }
 
-      const idToken = await user.getIdToken();
+      // Get user profile to get numeric user ID
+      const profileResponse = await fetch(`http://127.0.0.1:5000/get-profile?email=${user.email}`);
+      if (!profileResponse.ok) {
+        throw new Error('Failed to fetch user profile');
+      }
+      const userProfile = await profileResponse.json();
+      const userId = userProfile.id;
+
       const response = await fetch('http://127.0.0.1:5000/api/cart/remove', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`
         },
-        body: JSON.stringify({ productId })
+        body: JSON.stringify({ 
+          userId: parseInt(userId),
+          productId: parseInt(productId)
+        })
       });
 
-      if (response.ok) {
-        setCartItems(cartItems.filter(item => item.product_id !== productId));
-        toast.success('Item removed from cart');
-      } else {
-        throw new Error('Failed to remove item');
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to remove item');
       }
+
+      // Update local state after successful removal
+      setCartItems(prevItems => prevItems.filter(item => item.product_id !== productId));
+      toast.success('Item removed from cart');
     } catch (error) {
       console.error('Error removing item:', error);
-      toast.error('Failed to remove item');
+      toast.error(error.message || 'Failed to remove item');
     }
   };
 

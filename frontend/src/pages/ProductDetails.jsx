@@ -87,26 +87,22 @@ const ProductDetail = () => {
       if (!currentUser?.id || !productId) return;
 
       try {
-        const auth = getAuth();
-        const idToken = await auth.currentUser.getIdToken();
-        console.log("Checking wishlist status for product:", productId); // Debug log
-
         const response = await fetch(
           `http://127.0.0.1:5000/api/wishlist/check/${productId}`,
           {
-            credentials: "include",
+            method: 'POST',
             headers: {
-              "Authorization": `Bearer ${idToken}`,
-              "Access-Control-Allow-Origin": "http://localhost:5173"
-            }
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ 
+              userId: currentUser.id 
+            })
           }
         );
 
-        const data = await response.json();
-        console.log("Wishlist status response:", data); // Debug log
-        
         if (response.ok) {
-          setInWishlist(data.inWishlist);
+          const data = await response.json();
+          setInWishlist(data.status === "exists");
         }
       } catch (error) {
         console.error("Error checking wishlist status:", error);
@@ -117,28 +113,21 @@ const ProductDetail = () => {
   }, [currentUser?.id, productId]);
 
   const toggleWishlist = async () => {
-    const auth = getAuth();
-    if (!auth.currentUser) {
+    if (!currentUser?.id) {
       toast.error("Please login to use wishlist feature");
       navigate("/login");
       return;
     }
 
     try {
-      const idToken = await auth.currentUser.getIdToken();
-      console.log("Sending request with token:", idToken); // Debug log
-
       const response = await fetch("http://127.0.0.1:5000/api/wishlist/toggle", {
         method: "POST",
-        credentials: "include",
         headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${idToken}`,
-          "Access-Control-Allow-Origin": "http://localhost:5173"
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          productId: productId,
-          userId: currentUser.id
+          userId: currentUser.id,
+          productId: productId
         })
       });
 
@@ -146,9 +135,9 @@ const ProductDetail = () => {
       
       if (response.ok) {
         setInWishlist(!inWishlist);
-        toast.success(data.message || (inWishlist ? "Removed from wishlist" : "Added to wishlist"));
+        toast.success(data.message);
       } else {
-        throw new Error(data.message || "Failed to update wishlist");
+        throw new Error(data.error || "Failed to update wishlist");
       }
     } catch (error) {
       console.error("Error toggling wishlist:", error);
@@ -157,35 +146,32 @@ const ProductDetail = () => {
   };
 
   const handleAddToCart = async () => {
-    const auth = getAuth();
-    if (!auth.currentUser) {
+    if (!currentUser?.id) {
       toast.error("Please login to add items to cart");
       navigate("/login");
       return;
     }
 
     try {
-      // Get the ID token
-      const idToken = await auth.currentUser.getIdToken();
-
+      const userId = parseInt(currentUser.id); // Ensure numeric ID
       const response = await fetch("http://127.0.0.1:5000/api/cart/add", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${idToken}`
         },
         body: JSON.stringify({
-          productId: productId,
+          userId: userId,
+          productId: parseInt(productId),
           quantity: 1
         })
       });
 
-      if (response.ok) {
-        toast.success("Added to cart successfully");
-      } else {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to add to cart");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to add to cart");
       }
+
+      toast.success("Added to cart successfully");
     } catch (error) {
       console.error("Error adding to cart:", error);
       toast.error(error.message || "Failed to add to cart");
