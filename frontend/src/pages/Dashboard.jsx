@@ -145,6 +145,9 @@ const Dashboard = () => {
                 <button className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100" onClick={() => navigate("/profile")}>
                   View Profile
                 </button>
+                <button className="w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100" onClick={() => navigate("/orders")}>
+                  My Orders
+                </button>
                 <button className="w-full text-left px-4 py-2 text-red-500 hover:bg-gray-100" onClick={handleLogout}>
                   Logout
                 </button>
