@@ -13,10 +13,11 @@ import PrivateRoute from "../components/PrivateRoute";
 import ProductForm from "../components/ProductForm";
 import Wishlist from "../pages/Wishlist";
 import ProductDetail from "../pages/ProductDetails"; // Import the new component
-import Cart from "../components/Cart";
-import Checkout from "../components/Checkout";
+import Cart from "../pages/Cart";
+import Checkout from "../pages/Checkout";
 import OrderConfirmation from "../components/OrderConfirmation"; // Import the new component
-import Orders from "../pages/Orders"; // Import the new component
+import Orders from "../pages/Orders";
+import Messages from '../pages/Messages'; // Import the new component
 
 const AppRoutes = () => {
   const [user, setUser] = useState(null);
@@ -47,6 +48,7 @@ const AppRoutes = () => {
           <Route path="/create-product" element={<ProductForm />} />
           <Route path="/wishlist" element={<Wishlist userId={user?.uid} />} />
           <Route path="/product/:productId" element={<ProductDetail />} /> {/* New product detail route */}
+          <Route path="/messages" element={<Messages />} />
         </Route>
 
         {/* Public Routes */}
