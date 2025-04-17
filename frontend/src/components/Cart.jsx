@@ -87,12 +87,12 @@ const Cart = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 to-blue-900 py-12 px-4">
       <h2 className="text-2xl font-bold mb-6">Shopping Cart</h2>
       
       {cartItems.length === 0 ? (
         <div className="text-center py-8">
-          <p className="text-gray-600 mb-4">Your cart is empty</p>
+          <p className="text-white mb-4">Your cart is empty</p>
           <button 
             onClick={() => navigate('/dashboard')}
             className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600"

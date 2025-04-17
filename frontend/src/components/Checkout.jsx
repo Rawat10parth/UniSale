@@ -84,24 +84,49 @@ const Checkout = () => {
       const user = auth.currentUser;
       const idToken = await user.getIdToken();
 
+      // Check if user is logged in
+      if (!user) {
+        toast.error('Please login to place order');
+        navigate('/login');
+        return;
+      }
+
+      // Validate form data
+      if (!formData.fullName || !formData.phone || !formData.address || 
+          !formData.city || !formData.state || !formData.pincode) {
+        toast.error('Please fill all required fields');
+        return;
+      }
+
       const response = await fetch('http://127.0.0.1:5000/api/checkout', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${idToken}`
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          userId: user.uid
+        })
       });
 
-      if (response.ok) {
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to place order');
+      }
+
+      const data = await response.json();
+      
+      if (data.orderId) {
         toast.success('Order placed successfully!');
-        navigate('/order-confirmation');
+        // Clear cart and navigate to order confirmation
+        navigate(`/order-confirmation/${data.orderId}`);
       } else {
-        throw new Error('Failed to place order');
+        throw new Error('No order ID received');
       }
     } catch (error) {
       console.error('Checkout error:', error);
-      toast.error('Failed to place order');
+      toast.error(error.message || 'Failed to place order');
     } finally {
       setLoading(false);
     }
@@ -117,8 +142,7 @@ const Checkout = () => {
 
   return (
     <div
-      className="min-h-screen bg-cover bg-center flex items-center justify-center px-4 py-12"
-      style={{ backgroundImage: "url('/home-bg.png')" }}
+      className="min-h-screen bg-cover bg-center flex items-center justify-center px-4 py-12 bg-gradient-to-br from-purple-900 to-blue-900"
     >
       <form
         onSubmit={handleSubmit}
@@ -209,7 +233,7 @@ const Checkout = () => {
           <input
             type="text"
             name="hostelRoom"
-            placeholder="Hostel & Room Number"
+            placeholder="Hostel & Room Number (optional)"
             value={formData.hostelRoom}
             onChange={handleChange}
             className="w-full bg-white/40 bg-opacity-20 text-black placeholder-gray-700 px-4 py-2 rounded-lg border border-white/30 focus:outline-none focus:ring-2 focus:ring-fuchsia-300 mb-4"
