@@ -126,6 +126,42 @@ const ProductDetail = () => {
     }
   };
 
+  const handleAddToCart = async () => {
+    const auth = getAuth();
+    if (!auth.currentUser) {
+      toast.error("Please login to add items to cart");
+      navigate("/login");
+      return;
+    }
+
+    try {
+      // Get the ID token
+      const idToken = await auth.currentUser.getIdToken();
+
+      const response = await fetch("http://127.0.0.1:5000/api/cart/add", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${idToken}`
+        },
+        body: JSON.stringify({
+          productId: productId,
+          quantity: 1
+        })
+      });
+
+      if (response.ok) {
+        toast.success("Added to cart successfully");
+      } else {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to add to cart");
+      }
+    } catch (error) {
+      console.error("Error adding to cart:", error);
+      toast.error(error.message || "Failed to add to cart");
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -212,12 +248,20 @@ const ProductDetail = () => {
             <div className="mt-8 space-y-3">
               {/* Don't show contact button if user is the owner */}
               {!isOwner && (
-                <button
-                  onClick={handleContactSeller}
-                  className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition shadow-md hover:shadow-lg"
-                >
-                  Contact Seller
-                </button>
+                <>
+                  <button
+                    onClick={handleAddToCart}
+                    className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition shadow-md hover:shadow-lg"
+                  >
+                    Add to Cart
+                  </button>
+                  <button
+                    onClick={handleContactSeller}
+                    className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-green-700 transition shadow-md hover:shadow-lg"
+                  >
+                    Contact Seller
+                  </button>
+                </>
               )}
 
               <button
