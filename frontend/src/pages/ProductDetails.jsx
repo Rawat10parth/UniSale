@@ -15,6 +15,7 @@ const ProductDetail = () => {
   const [loading, setLoading] = useState(true);
   const [inWishlist, setInWishlist] = useState(false);
   const [showContactInfo, setShowContactInfo] = useState(false);
+  const [showChat, setShowChat] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
 
   // Fetch product details
@@ -40,6 +41,20 @@ const ProductDetail = () => {
 
     fetchProductDetails();
   }, [productId, navigate]);
+
+  useEffect(() => {
+    // If product is loaded but sellerId is missing, try to extract it
+    if (product && seller && !product.users_id) {
+      console.log("Attempting to extract seller ID from seller data:", seller);
+      // Update the product object with the seller ID if available
+      if (seller.id) {
+        setProduct(prev => ({
+          ...prev,
+          users_id: seller.id
+        }));
+      }
+    }
+  }, [product, seller]);
 
   // Add authentication state monitoring
   useEffect(() => {
@@ -208,10 +223,27 @@ const ProductDetail = () => {
   }
 
   const handleContactSeller = () => {
+    // Check if the user is logged in
+    const auth = getAuth();
+    if (!auth.currentUser) {
+      toast.error("Please login to contact the seller");
+      navigate("/login");
+      return;
+    }
+    
     setShowContactInfo(true);
+    setShowChat(true);
   };
 
   const isOwner = currentUser?.id === product.users_id;
+
+  console.log("Debug info:", {
+    currentUser: currentUser,
+    sellerId: product?.users_id || (seller?.id ? seller.id : "No seller ID available"),
+    sellerObject: seller,
+    productId: productId,
+    isOwner: isOwner
+  });
 
   return (
     <div className="product-bg min-h-screen py-12 px-4 sm:px-6 lg:px-8">
@@ -339,19 +371,32 @@ const ProductDetail = () => {
                   </div>
                 </div>
                 
-                {currentUser && (
-                  <Chat
-                    currentUser={currentUser}
-                    seller={seller}
-                    productId={productId}
-                  />
-                )}
-                
                 <div className="mt-6 bg-blue-500/10 border border-blue-500/20 p-4 rounded-xl">
                   <p className="text-sm text-blue-300">
                     <strong>Note:</strong> When contacting the seller, please be respectful and reference this product listing.
                   </p>
                 </div>
+                
+                {/* Chat section for buyers */}
+                {showChat && currentUser && !isOwner && (product?.users_id || seller?.id) && (
+                  <div className="mt-6">
+                    <h4 className="text-xl font-semibold text-white/90 mb-4">Chat with Seller</h4>
+                    <Chat 
+                      buyerId={currentUser.id}
+                      sellerId={product?.users_id || seller?.id}
+                      productId={productId}
+                    />
+                  </div>
+                )}    
+                
+                {/* Chat section for sellers/product owners 
+                Add a fallback for when seller ID is not available*/}
+                {showChat && currentUser && !isOwner && !product.users_id && (
+                  <div className="mt-6">
+                    <h4 className="text-xl font-semibold text-white/90 mb-4">Chat with Seller</h4>
+                    <p className="text-white/70">Unable to initialize chat. Seller information is unavailable.</p>
+                  </div>
+                )}
               </div>
             </div>
           )}
