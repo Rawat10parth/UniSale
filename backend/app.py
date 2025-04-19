@@ -242,18 +242,35 @@ def upload_product():
     category = request.form.get("category")
     state = request.form.get("state")
     price = request.form.get("price")
+    original_price = request.form.get("original_price") if state == "Used" else None
+    months_used = request.form.get("months_used") if state == "Used" else None
 
-    if not all([user_id, name, description, category, state, price, image_url]):
-        return jsonify({"error": "All fields are required"}), 400
+    # Update the validation check
+    required_fields = [user_id, name, description, category, state, price, image_url]
+    if state == "Used":
+        required_fields.extend([original_price, months_used])
+
+    if not all(required_fields):
+        return jsonify({"error": "Required fields are missing"}), 400
 
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO products (user_id, name, description, category, state, price, image_url) VALUES (%s, %s, %s, "
-            "%s,"
-            "%s, %s, %s)",
-            (user_id, name, description, category, state, price, image_url),
+            """INSERT INTO products 
+               (user_id, name, description, category, state, price, original_price, months_used, image_url)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+            (
+                user_id,
+                name, 
+                description,
+                category,
+                state,
+                price,
+                original_price,  # Only if Used
+                months_used,     # Only if Used
+                image_url
+            )
         )
         conn.commit()
         cursor.close()
