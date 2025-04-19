@@ -11,7 +11,31 @@ const ProductList = ({ products, userId, fetchProducts }) => {
   const [editProduct, setEditProduct] = useState(null);
   const [displayedProducts, setDisplayedProducts] = useState([]);
   const [hasMore, setHasMore] = useState(true);
+  const [editSuggestedPrice, setEditSuggestedPrice] = useState(null);
   const ITEMS_PER_LOAD = 12;
+
+  // Calculate Suggested Price
+  const calculateSuggestedPrice = (originalPrice, months, category) => {
+    const DEPRECIATION_RATES = {
+      "Books & Study Material": 0.5,
+      "Electronics & Gadgets": 0.6,
+      "Hostel & Room Essentials": 0.4,
+      "Clothing & Accessories": 0.7,
+      "Stationery & Supplies": 0.3,
+      "Bicycles & Transport": 0.4,
+      "Home Appliances": 0.5,
+      "Furniture": 0.4,
+      "Event & Fest Items": 0.6,
+      "Gaming & Entertainment": 0.55,
+      default: 0.5
+    };
+    
+    const yearlyRate = DEPRECIATION_RATES[category] || DEPRECIATION_RATES.default;
+    const monthlyRate = yearlyRate / 12;
+    const depreciation = originalPrice * (monthlyRate * months);
+    const suggestedPrice = Math.max(originalPrice - depreciation, originalPrice * 0.1);
+    return Math.round(suggestedPrice);
+  };
 
   // Fetch user's wishlist
   useEffect(() => {
@@ -231,31 +255,136 @@ const ProductList = ({ products, userId, fetchProducts }) => {
             />
             <textarea
               value={editProduct.description}
-              onChange={(e) =>
-                setEditProduct({ ...editProduct, description: e.target.value })
-              }
+              onChange={(e) => setEditProduct({ ...editProduct, description: e.target.value })}
               className="input-field w-full mb-3"
               placeholder="Description"
               rows="3"
               required
             />
-            <input
-              type="number"
-              value={editProduct.price}
-              onChange={(e) => setEditProduct({ ...editProduct, price: e.target.value })}
-              className="input-field w-full mb-3"
-              placeholder="Price"
-              required
-            />
+            
             <select
               value={editProduct.state || ""}
-              onChange={(e) => setEditProduct({ ...editProduct, state: e.target.value })}
-              className="input-field w-full mb-4"
+              onChange={(e) => {
+                if (e.target.value === "Used") {
+                  setEditProduct({
+                    ...editProduct,
+                    state: e.target.value,
+                    originalPrice: editProduct.price,
+                    conditionDetails: "",
+                  });
+                  setEditSuggestedPrice(null);
+                } else {
+                  setEditProduct({
+                    ...editProduct,
+                    state: e.target.value,
+                    originalPrice: "",
+                    conditionDetails: "",
+                    price: editProduct.price
+                  });
+                  setEditSuggestedPrice(null);
+                }
+              }}
+              className="input-field w-full mb-3"
             >
               <option value="" className="bg-gray-800">Select Condition</option>
               <option value="New" className="bg-gray-800">New</option>
               <option value="Used" className="bg-gray-800">Used</option>
             </select>
+
+            {/* Show price field for New products */}
+            {editProduct.state === "New" && (
+              <input
+                type="number"
+                value={editProduct.price || ""}
+                onChange={(e) => setEditProduct({
+                  ...editProduct,
+                  price: e.target.value
+                })}
+                className="input-field w-full mb-3"
+                placeholder="Price (₹)"
+                min="0"
+                required
+              />
+            )}
+
+            {/* Show additional fields for Used products */}
+            {editProduct.state === "Used" && (
+              <>
+                <input
+                  type="number"
+                  value={editProduct.originalPrice || ""}
+                  onChange={(e) => {
+                    const originalPrice = e.target.value;
+                    const suggested = calculateSuggestedPrice(
+                      Number(originalPrice),
+                      Number(editProduct.conditionDetails) || 0,
+                      editProduct.category
+                    );
+                    setEditSuggestedPrice(suggested);
+                    setEditProduct({
+                      ...editProduct,
+                      originalPrice,
+                      price: editProduct.price
+                    });
+                  }}
+                  className="input-field w-full mb-3"
+                  placeholder="Original Price (₹)"
+                  min="0"
+                  required
+                />
+                <input
+                  type="number"
+                  value={editProduct.conditionDetails || ""}
+                  onChange={(e) => {
+                    const months = e.target.value;
+                    const suggested = calculateSuggestedPrice(
+                      Number(editProduct.originalPrice),
+                      Number(months),
+                      editProduct.category
+                    );
+                    setEditSuggestedPrice(suggested);
+                    setEditProduct({
+                      ...editProduct,
+                      conditionDetails: months,
+                      price: editProduct.price
+                    });
+                  }}
+                  className="input-field w-full mb-3"
+                  placeholder="Months Used"
+                  min="0"
+                  required
+                />
+                <input
+                  type="number"
+                  value={editProduct.price || ""}
+                  onChange={(e) => {
+                    const newPrice = Number(e.target.value);
+                    if (editSuggestedPrice && newPrice > editSuggestedPrice) {
+                      setEditProduct({
+                        ...editProduct,
+                        price: editSuggestedPrice.toString()
+                      });
+                    } else {
+                      setEditProduct({
+                        ...editProduct,
+                        price: e.target.value
+                      });
+                    }
+                  }}
+                  max={editSuggestedPrice}
+                  className="input-field w-full mb-3"
+                  placeholder="Selling Price (₹)"
+                  min="0"
+                  required
+                />
+                {editSuggestedPrice && (
+                  <p className="text-sm text-white/70 mb-3">
+                    Suggested maximum price: ₹{editSuggestedPrice}
+                  </p>
+                )}
+              </>
+            )}
+            
             <div className="flex justify-end space-x-3">
               <button
                 type="button"

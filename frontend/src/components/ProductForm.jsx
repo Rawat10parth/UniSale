@@ -4,14 +4,31 @@ import axios from "axios";
 import DragDropUploader from "./DragDropUploader";
 import Toast from './Toast';
 
+const DEPRECIATION_RATES = {
+  "Books & Study Material": 0.5, // 50% per year
+  "Electronics & Gadgets": 0.6,
+  "Hostel & Room Essentials": 0.4,
+  "Clothing & Accessories": 0.7,
+  "Stationery & Supplies": 0.3,
+  "Bicycles & Transport": 0.4,
+  "Home Appliances": 0.5,
+  "Furniture": 0.4,
+  "Event & Fest Items": 0.6,
+  "Gaming & Entertainment": 0.55,
+  default: 0.5
+};
+
 export default function ProductForm({ setShowForm, userId }) {
   const [product, setProduct] = useState({
     name: "",
     description: "",
     price: "",
+    originalPrice: "",
     category: "",
     state: "",
+    conditionDetails: ""
   });
+  const [suggestedPrice, setSuggestedPrice] = useState(null);
   const [images, setImages] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -19,11 +36,50 @@ export default function ProductForm({ setShowForm, userId }) {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setProduct({ ...product, [name]: value });
+    
+    if (name === "originalPrice" && product.state === "Used") {
+      const suggested = calculateSuggestedPrice(
+        Number(value),
+        Number(product.conditionDetails) || 0,
+        product.category
+      );
+      setSuggestedPrice(suggested);
+      setProduct({
+        ...product,
+        [name]: value,
+        price: Math.min(value, suggested).toString()
+      });
+    } else {
+      setProduct({ ...product, [name]: value });
+    }
+    
+    // Recalculate suggested price when months or category changes
+    if ((name === "conditionDetails" || name === "category") && 
+        product.state === "Used" && product.originalPrice) {
+      const suggested = calculateSuggestedPrice(
+        Number(product.originalPrice),
+        Number(name === "conditionDetails" ? value : product.conditionDetails) || 0,
+        name === "category" ? value : product.category
+      );
+      setSuggestedPrice(suggested);
+      setProduct(prev => ({
+        ...prev,
+        [name]: value,
+        price: Math.min(prev.price, suggested).toString()
+      }));
+    }
   };
 
   const handleImagesChange = (newImages) => {
     setImages(newImages);
+  };
+
+  const calculateSuggestedPrice = (originalPrice, months, category) => {
+    const yearlyRate = DEPRECIATION_RATES[category] || DEPRECIATION_RATES.default;
+    const monthlyRate = yearlyRate / 12;
+    const depreciation = originalPrice * (monthlyRate * months);
+    const suggestedPrice = Math.max(originalPrice - depreciation, originalPrice * 0.1);
+    return Math.round(suggestedPrice);
   };
 
   const handleSubmit = async (e) => {
@@ -49,6 +105,12 @@ export default function ProductForm({ setShowForm, userId }) {
       formData.append("category", product.category);
       formData.append("state", product.state);
       formData.append("price", product.price);
+      
+      // Add new fields for used products
+      if (product.state === "Used") {
+        formData.append("original_price", product.originalPrice);
+        formData.append("months_used", product.conditionDetails);
+      }
       
       // Append multiple images
       if (images.length > 1) {
@@ -138,15 +200,57 @@ export default function ProductForm({ setShowForm, userId }) {
           required
         />
         
-        <input
-          type="number"
-          name="price"
-          placeholder="Price (₹)"
-          value={product.price}
-          onChange={handleChange}
-          className="border p-2 w-full rounded"
-          required
-        />
+        {product.state === "Used" ? (
+          <div className="flex flex-col gap-2">
+            <input
+              type="number"
+              name="originalPrice"
+              placeholder="Original Price (₹)"
+              value={product.originalPrice}
+              onChange={handleChange}
+              className="border p-2 w-full rounded"
+              required
+            />
+            <input
+              type="number"
+              name="conditionDetails"
+              placeholder="Months of Use"
+              value={product.conditionDetails}
+              onChange={handleChange}
+              className="border p-2 w-full rounded"
+              min="0"
+              required
+            />
+            <input
+              type="number"
+              name="price"
+              placeholder="Your Selling Price (₹)"
+              value={product.price}
+              onChange={handleChange}
+              max={suggestedPrice}
+              className="border p-2 w-full rounded"
+              required
+            />
+            {suggestedPrice && (
+              <p className="text-sm text-gray-600">
+                Suggested maximum price: ₹{suggestedPrice}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <input
+              type="number"
+              name="price"
+              placeholder="Price (₹)"
+              value={product.price}
+              onChange={handleChange}
+              className="border p-2 w-full rounded"
+              min="0"
+              required
+            />
+          </div>
+        )}
       </div>
       
       <textarea
