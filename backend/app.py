@@ -126,7 +126,7 @@ def delete_product_by_id(product_id):
 
 @app.route("/")
 def home():
-    return jsonify({"message": "Welcome to UniSale API!"})
+    return "Welcome to UniSale API!"
 
 
 @app.route("/users", methods=["GET"])
@@ -1046,6 +1046,6 @@ def get_order_details(order_id):
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
 
 # curl -X POST -F "image=@Zoro-Wallpaper-4k.jpg" http://127.0.0.1:5000/upload-image
