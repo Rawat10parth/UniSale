@@ -51,21 +51,28 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "tactile-rigging-451008-a0-f0a39b
 
 # =================== MYSQL CONNECTION SETUP =================== #
 
-# Local MySQL (XAMPP) Configuration
-MYSQL_HOST = "localhost"
-MYSQL_USER = "root"
-MYSQL_PASSWORD = ""
-MYSQL_DATABASE = "unisale"
+# Add Google Cloud SQL Configuration
+CLOUD_SQL_CONFIG = {
+    'host': '34.131.40.156',  # Your Cloud SQL instance IP
+    'user': 'root',           # Your Cloud SQL username
+    'password': 'parth@123',  # Your Cloud SQL password
+    'database': 'unisale',    # Your database name
+}
+#my ip 106.215.163.19
 
-
-# Establish database connection
+# Update the database connection function
 def get_db_connection():
-    return mysql.connector.connect(
-        host=MYSQL_HOST,
-        user=MYSQL_USER,
-        password=MYSQL_PASSWORD,
-        database=MYSQL_DATABASE,
-    )
+    try:
+        connection = mysql.connector.connect(
+            host=CLOUD_SQL_CONFIG['host'],
+            user=CLOUD_SQL_CONFIG['user'],
+            password=CLOUD_SQL_CONFIG['password'],
+            database=CLOUD_SQL_CONFIG['database'],
+        )
+        return connection
+    except mysql.connector.Error as err:
+        print(f"Error connecting to Cloud SQL: {err}")
+        raise
 
 
 # =================== FIREBASE AUTH SETUP =================== #
@@ -219,6 +226,11 @@ def delete_from_gcs(public_url):
 
 
 db = mysql.connector.connect(
+    host="34.131.40.156", user="root", password="parth@123", database="unisale"
+)
+cursor = db.cursor()
+
+db = mysql.connector.connect(
     host="localhost", user="root", password="", database="unisale"
 )
 cursor = db.cursor()
@@ -226,57 +238,13 @@ cursor = db.cursor()
 
 @app.route("/api/upload", methods=["POST"])
 def upload_product():
-    if 'image' not in request.files:
-        return jsonify({"error": "No image uploaded"}), 400
-
-    file = request.files['image']
-    image_url = gcs_upload_image(file, "product-image")  # Upload to 'product-image' folder
-
-    if not image_url:
-        return jsonify({"error": "Image upload failed"}), 500
-
-    # Get product details from form data
-    user_id = request.form.get("user_id")
-    name = request.form.get("name")
-    description = request.form.get("description")
-    category = request.form.get("category")
-    state = request.form.get("state")
-    price = request.form.get("price")
-    original_price = request.form.get("original_price") if state == "Used" else None
-    months_used = request.form.get("months_used") if state == "Used" else None
-
-    # Update the validation check
-    required_fields = [user_id, name, description, category, state, price, image_url]
-    if state == "Used":
-        required_fields.extend([original_price, months_used])
-
-    if not all(required_fields):
-        return jsonify({"error": "Required fields are missing"}), 400
-
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute(
-            """INSERT INTO products 
-               (user_id, name, description, category, state, price, original_price, months_used, image_url)
-               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-            (
-                user_id,
-                name, 
-                description,
-                category,
-                state,
-                price,
-                original_price,  # Only if Used
-                months_used,     # Only if Used
-                image_url
-            )
-        )
+        # Your code here
         conn.commit()
         cursor.close()
         conn.close()
-
-        return jsonify({"message": "Product uploaded successfully", "image_url": image_url}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
