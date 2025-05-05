@@ -126,7 +126,7 @@ def delete_product_by_id(product_id):
 
 @app.route("/")
 def home():
-    return "Welcome to UniSale API!"
+    return "Welcome to UniSale"
 
 
 @app.route("/users", methods=["GET"])
