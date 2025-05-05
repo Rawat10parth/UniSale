@@ -1,0 +1,9 @@
+Flask
+flask-cors
+python-dotenv
+firebase-admin
+requests
+mysql-connector-python
+google-cloud-storage
+pymysql
+Werkzeug
