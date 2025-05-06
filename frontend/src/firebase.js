@@ -1,6 +1,5 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, OAuthProvider } from "firebase/auth";
-import { getFirestore } from "firebase/firestore"; // Add this import
 
 const firebaseConfig = {
   apiKey: "AIzaSyANra3YxMTaxwYHd06r_WolpPFEVIFyoys",
@@ -15,7 +14,6 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app); // Add this line to initialize and export Firestore
 
 // Microsoft OAuth Provider
 export const microsoftProvider = new OAuthProvider("microsoft.com");
