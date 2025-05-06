@@ -126,7 +126,7 @@ def delete_product_by_id(product_id):
 
 @app.route("/")
 def home():
-    return "Welcome to UniSale"
+    return "Welcome to UniSale API!"
 
 
 @app.route("/users", methods=["GET"])
@@ -229,12 +229,6 @@ db = mysql.connector.connect(
     host="34.131.40.156", user="root", password="parth@123", database="unisale"
 )
 cursor = db.cursor()
-
-db = mysql.connector.connect(
-    host="localhost", user="root", password="", database="unisale"
-)
-cursor = db.cursor()
-
 
 @app.route("/api/upload", methods=["POST"])
 def upload_product():
@@ -1046,6 +1040,8 @@ def get_order_details(order_id):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080)
+    import os
+    port = int(os.environ.get("PORT", 8080))  # Use PORT env variable or default to 8080
+    app.run(host="0.0.0.0", port=port)
 
 # curl -X POST -F "image=@Zoro-Wallpaper-4k.jpg" http://127.0.0.1:5000/upload-image
