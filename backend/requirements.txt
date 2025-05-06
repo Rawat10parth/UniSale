@@ -60,7 +60,6 @@ pyparsing
 python-dotenv
 python-engineio
 python-socketio
-pywin32
 requests
 rsa
 simple-websocket
