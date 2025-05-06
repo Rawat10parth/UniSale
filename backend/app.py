@@ -19,7 +19,7 @@ app = Flask(__name__)
 # Update CORS configuration to handle all routes and methods
 CORS(app, resources={
     r"/*": {
-        "origins": ["https://unisale-1556d.web.app/", "http://localhost:5173"],
+        "origins": ["http://localhost:5173"],
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"]
     }
@@ -1040,8 +1040,6 @@ def get_order_details(order_id):
 
 
 if __name__ == "__main__":
-    import os
-    port = int(os.environ.get("PORT", 8080))  # Use PORT env variable or default to 8080
-    app.run(host="0.0.0.0", port=port)
+    app.run(debug=True)
 
 # curl -X POST -F "image=@Zoro-Wallpaper-4k.jpg" http://127.0.0.1:5000/upload-image
