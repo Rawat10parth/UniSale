@@ -1038,23 +1038,11 @@ def get_user_orders(user_id):
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
         
-        # Get all orders for the user with items and delivery details
+        # First, get all orders for the user
         cursor.execute("""
-            SELECT 
-                o.id, o.total_amount, o.status, o.created_at,
-                da.full_name, da.phone, da.address, da.city, da.state, da.pincode,
-                GROUP_CONCAT(oi.product_id) as product_ids,
-                GROUP_CONCAT(oi.quantity) as quantities,
-                GROUP_CONCAT(oi.price) as prices,
-                GROUP_CONCAT(p.name) as product_names,
-                GROUP_CONCAT(p.image_url) as image_urls
+            SELECT o.id, o.total_amount, o.status, o.created_at
             FROM orders o
-            LEFT JOIN delivery_addresses da ON o.id = da.order_id
-            LEFT JOIN order_items oi ON o.id = oi.order_id
-            LEFT JOIN products p ON oi.product_id = p.id
             WHERE o.user_id = %s
-            GROUP BY o.id, o.created_at
-            ORDER BY o.created_at DESC
         """, (user_id,))
         
         orders_data = cursor.fetchall()
@@ -1062,25 +1050,24 @@ def get_user_orders(user_id):
         # Format the orders data
         orders = []
         for order in orders_data:
-            # Split concatenated strings into lists
-            product_ids = str(order['product_ids']).split(',') if order['product_ids'] else []
-            quantities = str(order['quantities']).split(',') if order['quantities'] else []
-            prices = str(order['prices']).split(',') if order['prices'] else []
-            names = str(order['product_names']).split(',') if order['product_names'] else []
-            images = str(order['image_urls']).split(',') if order['image_urls'] else []
+            # Get delivery address for this order
+            cursor.execute("""
+                SELECT full_name, phone, address, city, state, pincode, hostel_room
+                FROM delivery_addresses
+                WHERE order_id = %s
+            """, (order['id'],))
             
-            # Create items list
-            items = [
-                {
-                    'id': int(pid),
-                    'quantity': int(qty),
-                    'price': float(price),
-                    'name': name,
-                    'image_url': img
-                }
-                for pid, qty, price, name, img in zip(product_ids, quantities, prices, names, images)
-                if all([pid, qty, price, name, img])
-            ]
+            address_data = cursor.fetchone() or {}
+            
+            # Get order items for this order
+            cursor.execute("""
+                SELECT oi.product_id, oi.quantity, oi.price, p.name, p.image_url
+                FROM order_items oi
+                JOIN products p ON oi.product_id = p.id
+                WHERE oi.order_id = %s
+            """, (order['id'],))
+            
+            items_data = cursor.fetchall() or []
             
             # Format order data
             orders.append({
@@ -1089,14 +1076,23 @@ def get_user_orders(user_id):
                 'status': order['status'],
                 'created_at': order['created_at'].isoformat() if order['created_at'] else None,
                 'delivery_address': {
-                    'full_name': order['full_name'],
-                    'phone': order['phone'],
-                    'address': order['address'],
-                    'city': order['city'],
-                    'state': order['state'],
-                    'pincode': order['pincode']
+                    'full_name': address_data.get('full_name', ''),
+                    'phone': address_data.get('phone', ''),
+                    'address': address_data.get('address', ''),
+                    'city': address_data.get('city', ''),
+                    'state': address_data.get('state', ''),
+                    'pincode': address_data.get('pincode', '')
                 },
-                'items': items
+                'items': [
+                    {
+                        'id': item['product_id'],
+                        'quantity': item['quantity'],
+                        'price': float(item['price']),
+                        'name': item['name'],
+                        'image_url': item['image_url']
+                    }
+                    for item in items_data
+                ]
             })
         
         cursor.close()
