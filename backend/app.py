@@ -224,22 +224,107 @@ def delete_from_gcs(public_url):
     except Exception as e:
         print(f"Error deleting image from GCS: {str(e)}")
 
+# File extension validation helper
+def allowed_file(filename):
+    """Check if the file extension is allowed"""
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 db = mysql.connector.connect(
     host="34.131.40.156", user="root", password="parth@123", database="unisale"
 )
 cursor = db.cursor()
 
-@app.route("/api/upload", methods=["POST"])
+@app.route('/api/upload', methods=['POST'])
+@app.route('/api/upload', methods=['POST', 'OPTIONS'])
 def upload_product():
+    """Handle single image product upload"""
+    # Handle preflight CORS requests
+    if request.method == 'OPTIONS':
+        return '', 200
+        
     try:
+        print("Single image upload started...")
+        
+        # Get form data
+        user_id = request.form.get('user_id')
+        name = request.form.get('name')
+        description = request.form.get('description')
+        category = request.form.get('category')
+        state = request.form.get('state', 'Not specified')
+        price = request.form.get('price')
+        original_price = request.form.get('original_price')
+        months_used = request.form.get('months_used')
+        
+        print(f"Received product data: {name}, {category}, {price}")
+        
+        # Validate required fields
+        if not all([user_id, name, description, category, price]):
+            return jsonify({"error": "Missing required fields"}), 400
+        
+        # Check if image file is present
+        if 'image' not in request.files:
+            print("No image file found in request")
+            return jsonify({"error": "No image file found"}), 400
+        
+        file = request.files['image']
+        if file.filename == '':
+            return jsonify({"error": "No selected file"}), 400
+        
+        # Upload image to Google Cloud Storage
+        image_url = gcs_upload_image(file, "product-image")
+        if not image_url:
+            return jsonify({"error": "Failed to upload image"}), 500
+        
+        print(f"Image uploaded to GCS: {image_url}")
+        
+        # Create database connection
         conn = get_db_connection()
         cursor = conn.cursor()
-        # Your code here
+        
+        # Insert product into database
+        cursor.execute("""
+            INSERT INTO products 
+            (user_id, name, description, category, state, price, image_url, original_price, months_used)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            user_id, 
+            name, 
+            description, 
+            category, 
+            state, 
+            price, 
+            image_url,
+            original_price if original_price else None,
+            months_used if months_used else None
+        ))
+        
+        # Get the inserted product ID
+        product_id = cursor.lastrowid
+        
+        # Also add the image to product_images table
+        cursor.execute("""
+            INSERT INTO product_images (product_id, image_url)
+            VALUES (%s, %s)
+        """, (product_id, image_url))
+        
         conn.commit()
         cursor.close()
         conn.close()
+        
+        print(f"Product {product_id} created successfully")
+        
+        return jsonify({
+            "message": "Product uploaded successfully",
+            "product_id": product_id,
+            "image_url": image_url
+        })
+            
     except Exception as e:
+        print(f"Error in upload_product: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 
@@ -580,76 +665,105 @@ def get_user_by_id(users_id):
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/upload-multiple", methods=["POST"])
-def upload_multiple_images():
-    if 'images[]' not in request.files:
-        return jsonify({"error": "No images uploaded"}), 400
-
-    files = request.files.getlist('images[]')
-    if not files or len(files) == 0:
-        return jsonify({"error": "No valid images found"}), 400
-
-    uploaded_urls = []
+@app.route('/api/upload-multiple', methods=['POST', 'OPTIONS'])
+def upload_multiple():
+    # Handle preflight CORS requests
+    if request.method == 'OPTIONS':
+        return '', 200
+        
     try:
+        # Get form data
+        user_id = request.form.get('user_id')
+        name = request.form.get('name')
+        description = request.form.get('description')
+        category = request.form.get('category')
+        state = request.form.get('state', 'Not specified')
+        price = request.form.get('price')
+        original_price = request.form.get('original_price')
+        months_used = request.form.get('months_used')
+        
+        print(f"Received product data: name={name}, category={category}, price={price}, user_id={user_id}")
+        
+        # Validate required fields
+        if not all([user_id, name, description, category, price]):
+            return jsonify({"error": "Missing required fields"}), 400
+        
+        # Check if image files are present
+        if 'images[]' not in request.files:
+            print("No images found in request")
+            return jsonify({"error": "No images part"}), 400
+        
+        files = request.files.getlist('images[]')
+        if len(files) == 0 or files[0].filename == '':
+            return jsonify({"error": "No images selected"}), 400
+        
+        # Upload to Google Cloud Storage and get URLs
+        image_urls = []
+        for file in files:
+            if file and allowed_file(file.filename):
+                # Upload to Google Cloud Storage instead of local storage
+                image_url = gcs_upload_image(file, "product-image")
+                if image_url:
+                    image_urls.append(image_url)
+                else:
+                    # If GCS upload fails, clean up any uploaded images
+                    for url in image_urls:
+                        delete_from_gcs(url)
+                    return jsonify({"error": "Failed to upload image to Google Cloud Storage"}), 500
+        
+        if not image_urls:
+            return jsonify({"error": "No valid images uploaded"}), 400
+            
+        print(f"Uploaded {len(image_urls)} images to GCS")
+        
+        # Create database connection
         conn = get_db_connection()
         cursor = conn.cursor()
-
-        # Upload all images first
-        for file in files:
-            image_url = gcs_upload_image(file, "product-image")
-            if not image_url:
-                # If any upload fails, delete previously uploaded images
-                for url in uploaded_urls:
-                    delete_from_gcs(url)  # You'll need to implement this function
-                return jsonify({"error": "Image upload failed"}), 500
-            uploaded_urls.append(image_url)
-
-        # Get product details from form data
-        user_id = request.form.get("user_id")
-        name = request.form.get("name")
-        description = request.form.get("description")
-        category = request.form.get("category")
-        state = request.form.get("state")
-        price = request.form.get("price")
-
-        if not all([user_id, name, description, category, state, price]):
-            # Delete all uploaded images if validation fails
-            for url in uploaded_urls:
-                delete_from_gcs(url)
-            return jsonify({"error": "All fields are required"}), 400
-
-        # Insert the main product with first image
-        cursor.execute(
-            "INSERT INTO products (user_id, name, description, category, state, price, image_url) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s)",
-            (user_id, name, description, category, state, price, uploaded_urls[0])
-        )
+        
+        # Insert product into database with first image as main image
+        cursor.execute("""
+            INSERT INTO products 
+            (user_id, name, description, category, state, price, image_url, original_price, months_used)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            user_id, 
+            name, 
+            description, 
+            category, 
+            state, 
+            price, 
+            image_urls[0],  # Use first image as main product image
+            original_price if original_price else None,
+            months_used if months_used else None
+        ))
+        
+        # Get the inserted product ID
         product_id = cursor.lastrowid
-
-        # Insert additional images
-        if len(uploaded_urls) > 1:
-            for url in uploaded_urls[1:]:
-                cursor.execute(
-                    "INSERT INTO product_images (product_id, image_url) VALUES (%s, %s)",
-                    (product_id, url)
-                )
-
+        print(f"Created product with ID: {product_id}")
+        
+        # Add all images to product_images table
+        for image_url in image_urls:
+            cursor.execute("""
+                INSERT INTO product_images (product_id, image_url)
+                VALUES (%s, %s)
+            """, (product_id, image_url))
+        
         conn.commit()
         cursor.close()
         conn.close()
-
+        
         return jsonify({
-            "message": "Product uploaded successfully",
+            "message": f"Product uploaded successfully with {len(image_urls)} images",
             "product_id": product_id,
-            "images": uploaded_urls
-        }), 201
-
+            "image_urls": image_urls
+        })
+            
     except Exception as e:
-        # Delete all uploaded images if there's an error
-        for url in uploaded_urls:
-            delete_from_gcs(url)
+        print(f"Error in upload_multiple: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
-    
+
 
 # Cart Routes
 @app.route('/api/cart', methods=['GET'])
