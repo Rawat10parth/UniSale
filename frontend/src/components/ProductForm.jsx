@@ -113,38 +113,14 @@ export default function ProductForm({ setShowForm, userId }) {
         formData.append("months_used", product.conditionDetails);
       }
       
-      // Append multiple images
-      if (images.length > 1) {
-        // Using the new multi-image endpoint
-        images.forEach(image => {
-          formData.append("images[]", image);
-        });
-        
-        const response = await axios.post(
-          `http://127.0.0.1:5000/api/upload-multiple`, 
-          formData, 
-          {
-            headers: { "Content-Type": "multipart/form-data" },
-            onUploadProgress: (progressEvent) => {
-              const percentCompleted = Math.round(
-                (progressEvent.loaded * 100) / progressEvent.total
-              );
-              setUploadProgress(percentCompleted);
-            }
-          }
-        );
-        
-        setToast({
-          show: true,
-          message: `Product uploaded successfully with ${images.length} images!`,
-          type: 'success'
-        });
-        console.log(response.data);
-      } else {
-        // Fallback to single image upload if only one image
+      console.log("Submitting product with", images.length, "images");
+      
+      let response;
+      if (images.length === 1) {
+        // Single image upload
         formData.append("image", images[0]);
         
-        const response = await axios.post(
+        response = await axios.post(
           `http://127.0.0.1:5000/api/upload`, 
           formData, 
           {
@@ -157,21 +133,41 @@ export default function ProductForm({ setShowForm, userId }) {
             }
           }
         );
+      } else {
+        // Multiple image upload
+        for (let i = 0; i < images.length; i++) {
+          formData.append("images[]", images[i]);
+        }
         
-        setToast({
-          show: true,
-          message: 'Product uploaded successfully!',
-          type: 'success'
-        });
-        console.log(response.data);
+        response = await axios.post(
+          `http://127.0.0.1:5000/api/upload-multiple`, 
+          formData, 
+          {
+            headers: { "Content-Type": "multipart/form-data" },
+            onUploadProgress: (progressEvent) => {
+              const percentCompleted = Math.round(
+                (progressEvent.loaded * 100) / progressEvent.total
+              );
+              setUploadProgress(percentCompleted);
+            }
+          }
+        );
       }
+      
+      console.log("Server response:", response.data);
+      
+      setToast({
+        show: true,
+        message: `Product uploaded successfully with ${images.length} image${images.length > 1 ? 's' : ''}!`,
+        type: 'success'
+      });
       
       setTimeout(() => setShowForm(false), 2000); // Close form after 2 seconds
     } catch (error) {
       console.error("Upload failed", error.response?.data || error);
       setToast({
         show: true,
-        message: 'Failed to upload product. Please try again.',
+        message: `Failed to upload product: ${error.response?.data?.error || error.message}`,
         type: 'error'
       });
     } finally {
