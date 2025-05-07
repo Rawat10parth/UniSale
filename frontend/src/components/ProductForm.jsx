@@ -4,6 +4,7 @@ import axios from "axios";
 import DragDropUploader from "./DragDropUploader";
 import Toast from './Toast';
 
+
 const DEPRECIATION_RATES = {
   "Books & Study Material": 0.5, // 50% per year
   "Electronics & Gadgets": 0.6,
@@ -120,7 +121,7 @@ export default function ProductForm({ setShowForm, userId }) {
         });
         
         const response = await axios.post(
-          "http://localhost:5000/api/upload-multiple", 
+          `http://127.0.0.1:5000/api/upload-multiple`, 
           formData, 
           {
             headers: { "Content-Type": "multipart/form-data" },
@@ -144,7 +145,7 @@ export default function ProductForm({ setShowForm, userId }) {
         formData.append("image", images[0]);
         
         const response = await axios.post(
-          "http://localhost:5000/api/upload", 
+          `http://127.0.0.1:5000/api/upload`, 
           formData, 
           {
             headers: { "Content-Type": "multipart/form-data" },

@@ -5,6 +5,7 @@ import { toast } from "react-toastify";
 import InfiniteScroll from "react-infinite-scroll-component";
 import ZoomableImage from "./ZoomableImage";
 
+
 const ProductList = ({ products, userId, fetchProducts }) => {
   const navigate = useNavigate();
   const [wishlistItems, setWishlistItems] = useState([]);
@@ -52,11 +53,20 @@ const ProductList = ({ products, userId, fetchProducts }) => {
     if (userId) fetchWishlist();
   }, [userId]);
 
-  // Infinite Scroll: Reset displayed products whenever products change
+  // Fetch products
   useEffect(() => {
-    setDisplayedProducts(products.slice(0, ITEMS_PER_LOAD));
-    setHasMore(products.length > ITEMS_PER_LOAD);
-  }, [products]);
+    const fetchProducts = async () => {
+      try {
+        const response = await fetch(`http://localhost:5000/get-products`);
+        const data = await response.json();
+        setDisplayedProducts(data.slice(0, ITEMS_PER_LOAD));
+        setHasMore(data.length > ITEMS_PER_LOAD);
+      } catch (error) {
+        console.error("❌ Error fetching products:", error);
+      }
+    };
+    fetchProducts();
+  }, []);
 
   const fetchMoreData = () => {
     if (displayedProducts.length >= products.length) {
@@ -76,7 +86,7 @@ const ProductList = ({ products, userId, fetchProducts }) => {
       return;
     }
     try {
-      const response = await fetch("http://127.0.0.1:5000/toggle-wishlist", {
+      const response = await fetch(`http://127.0.0.1:5000/toggle-wishlist`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ users_id: userId, image_url }),

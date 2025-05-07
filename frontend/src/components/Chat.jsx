@@ -4,6 +4,7 @@ import PropTypes from 'prop-types';
 import { db } from '../firebase';
 import { getAuth } from 'firebase/auth';
 
+
 const Chat = ({ buyerId, sellerId, productId }) => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');

@@ -4,6 +4,7 @@ import { getAuth } from 'firebase/auth';
 import { toast } from 'react-toastify';
 import '../styles/SharedBackground.css';
 
+
 const OrderConfirmation = () => {
   const { orderId } = useParams();
   const navigate = useNavigate();
@@ -41,7 +42,9 @@ const OrderConfirmation = () => {
       }
     };
 
-    fetchOrderDetails();
+    if (orderId) {
+      fetchOrderDetails();
+    }
   }, [orderId, auth, navigate]);
 
   if (loading) {
