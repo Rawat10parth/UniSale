@@ -486,16 +486,29 @@ def toggle_wishlist():
     print(f"Received wishlist toggle request: {data}")  # Add debug logging
 
     user_id = data.get("users_id")
-    image_url = data.get("image_url")
+    product_id = data.get("product_id")  # We'll use this to look up the image URL
 
-    if not user_id or not image_url:
-        print(f"Missing fields - user_id: {user_id}, image_url: {image_url}")
+    if not user_id or not product_id:
+        print(f"Missing fields - user_id: {user_id}, product_id: {product_id}")
         return jsonify({"error": "Missing fields"}), 400
 
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
 
+        # First, get the product's image_url
+        cursor.execute(
+            "SELECT image_url FROM products WHERE id = %s",
+            (product_id,)
+        )
+        product = cursor.fetchone()
+        
+        if not product:
+            conn.close()
+            return jsonify({"error": "Product not found"}), 404
+            
+        image_url = product['image_url']
+        
         # Check if item exists
         cursor.execute(
             "SELECT * FROM wishlist WHERE users_id = %s AND image_url = %s",
@@ -522,6 +535,11 @@ def toggle_wishlist():
         conn.close()
         print(f"Operation result: {result}")  # Add debug logging
         return jsonify(result), 200
+
+    except Exception as e:
+        print(f"Error in toggle-wishlist: {str(e)}")
+        traceback.print_exc()  # Add full traceback
+        return jsonify({"error": str(e)}), 500
 
     except Exception as e:
         print(f"Error in toggle-wishlist: {str(e)}")
@@ -898,13 +916,29 @@ def remove_from_cart():
 def check_wishlist_status(product_id):
     data = request.get_json()
     user_id = data.get('userId')
+    
     try:
+        # First, get the image_url for this product
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
 
+        # Get the product's image_url
         cursor.execute(
-            "SELECT * FROM wishlist WHERE users_id = %s AND product_id = %s",
-            (user_id, product_id)
+            "SELECT image_url FROM products WHERE id = %s",
+            (product_id,)
+        )
+        product = cursor.fetchone()
+        
+        if not product:
+            conn.close()
+            return jsonify({"status": "not_exists", "error": "Product not found"}), 404
+            
+        image_url = product['image_url']
+        
+        # Now check if this product's image URL is in the wishlist
+        cursor.execute(
+            "SELECT * FROM wishlist WHERE users_id = %s AND image_url = %s",
+            (user_id, image_url)
         )
         wishlist_item = cursor.fetchone()
 
@@ -914,6 +948,7 @@ def check_wishlist_status(product_id):
             return jsonify({"status": "exists"})
         else:
             return jsonify({"status": "not_exists"})
+            
     except Exception as e:
         print(f"Error checking wishlist status: {str(e)}")
         return jsonify({"error": str(e)}), 500
