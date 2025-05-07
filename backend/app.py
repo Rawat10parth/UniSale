@@ -809,16 +809,16 @@ def check_wishlist_status(product_id):
 @app.route('/api/checkout', methods=['POST'])
 def create_order():
     try:
-        user_id = get_current_user_id()
-        if not user_id:
-            return jsonify({"error": "Unauthorized"}), 401
-
         data = request.json
+        user_id = data.get('userId')  # Get userId from request body
+        if not user_id:
+            return jsonify({"error": "User ID is required"}), 400
+
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
 
         try:
-            # Start transaction - Changed from begin() to start_transaction()
+            # Start transaction
             conn.start_transaction()
 
             # Get cart items first
@@ -836,19 +836,19 @@ def create_order():
             # Calculate total amount
             total_amount = sum(item['price'] * item['quantity'] for item in cart_items)
 
-            # Create order
+            # Create order - Make sure user_id is cast to INTEGER
             cursor.execute("""
                 INSERT INTO orders (user_id, total_amount, status) 
-                VALUES (%s, %s, 'pending')
+                VALUES (CAST(%s AS UNSIGNED), %s, 'pending')
             """, (user_id, total_amount))
             
             order_id = cursor.lastrowid
 
-            # Create delivery address
+            # Create delivery address - Make sure user_id is cast to INTEGER
             cursor.execute("""
                 INSERT INTO delivery_addresses 
                 (order_id, user_id, full_name, phone, address, city, state, pincode, hostel_room)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, CAST(%s AS UNSIGNED), %s, %s, %s, %s, %s, %s, %s)
             """, (
                 order_id,
                 user_id,
@@ -869,12 +869,11 @@ def create_order():
                 """, (order_id, item['product_id'], item['quantity'], item['price']))
 
             # Clear cart
-            cursor.execute("DELETE FROM cart WHERE user_id = %s", (user_id,))
+            cursor.execute("DELETE FROM cart WHERE user_id = CAST(%s AS UNSIGNED)", (user_id,))
 
             # Commit transaction
             conn.commit()
 
-            print(f"Order created successfully: {order_id}")
             return jsonify({
                 "message": "Order placed successfully",
                 "orderId": order_id
@@ -969,31 +968,25 @@ def get_orders():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route('/api/orders/<order_id>', methods=['GET'])
+@app.route('/api/orders/<int:order_id>', methods=['GET'])
 def get_order_details(order_id):
     try:
-        user_id = get_current_user_id()
-        if not user_id:
-            return jsonify({"error": "Unauthorized"}), 401
-
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
-        
+
         # Get order details
         cursor.execute("""
             SELECT o.*, 
-                   da.full_name, da.phone, da.address, da.city, da.state, 
-                   da.pincode, da.hostel_room
+                   d.full_name, d.phone, d.address, d.city, d.state, d.pincode, d.hostel_room
             FROM orders o
-            LEFT JOIN delivery_addresses da ON da.user_id = o.user_id  # Changed JOIN condition
-            WHERE o.id = %s AND o.user_id = %s
-        """, (order_id, user_id))
-        
+            LEFT JOIN delivery_addresses d ON o.id = d.order_id
+            WHERE o.id = %s
+        """, (order_id,))
         order = cursor.fetchone()
-        
+
         if not order:
             return jsonify({"error": "Order not found"}), 404
-            
+
         # Get order items
         cursor.execute("""
             SELECT oi.*, p.name, p.image_url
@@ -1001,42 +994,118 @@ def get_order_details(order_id):
             JOIN products p ON oi.product_id = p.id
             WHERE oi.order_id = %s
         """, (order_id,))
-        
         items = cursor.fetchall()
-        
-        # Format the response with proper date handling
-        order['created_at'] = order['created_at'].isoformat() if order['created_at'] else None
-        order['updated_at'] = order['updated_at'].isoformat() if order['updated_at'] else None
-        
+
+        # Construct response
         response = {
-            'id': order['id'],
-            'status': order['status'],
-            'total_amount': float(order['total_amount']),
-            'created_at': order['created_at'],
-            'updated_at': order['updated_at'],
-            'delivery_address': {
-                'full_name': order['full_name'],
-                'phone': order['phone'],
-                'address': order['address'],
-                'city': order['city'],
-                'state': order['state'],
-                'pincode': order['pincode'],
-                'hostel_room': order['hostel_room']
+            "id": order['id'],
+            "user_id": order['user_id'],
+            "status": order['status'],
+            "total_amount": float(order['total_amount']),
+            "created_at": order['created_at'].isoformat(),
+            "delivery_address": {
+                "full_name": order['full_name'],
+                "phone": order['phone'],
+                "address": order['address'],
+                "city": order['city'],
+                "state": order['state'],
+                "pincode": order['pincode'],
+                "hostel_room": order['hostel_room']
             },
-            'items': [{
-                'id': item['id'],
-                'name': item['name'],
-                'quantity': item['quantity'],
-                'price': float(item['price']),
-                'image_url': item['image_url']
+            "items": [{
+                "id": item['id'],
+                "product_id": item['product_id'],
+                "quantity": item['quantity'],
+                "price": float(item['price']),
+                "name": item['name'],
+                "image_url": item['image_url']
             } for item in items]
         }
-        
+
+        cursor.close()
         conn.close()
+
         return jsonify(response)
-        
+
     except Exception as e:
         print(f"Error fetching order details: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/orders/user/<int:user_id>', methods=['GET'])
+def get_user_orders(user_id):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        
+        # Get all orders for the user with items and delivery details
+        cursor.execute("""
+            SELECT 
+                o.id, o.total_amount, o.status, o.created_at,
+                da.full_name, da.phone, da.address, da.city, da.state, da.pincode,
+                GROUP_CONCAT(oi.product_id) as product_ids,
+                GROUP_CONCAT(oi.quantity) as quantities,
+                GROUP_CONCAT(oi.price) as prices,
+                GROUP_CONCAT(p.name) as product_names,
+                GROUP_CONCAT(p.image_url) as image_urls
+            FROM orders o
+            LEFT JOIN delivery_addresses da ON o.id = da.order_id
+            LEFT JOIN order_items oi ON o.id = oi.order_id
+            LEFT JOIN products p ON oi.product_id = p.id
+            WHERE o.user_id = %s
+            GROUP BY o.id, o.created_at
+            ORDER BY o.created_at DESC
+        """, (user_id,))
+        
+        orders_data = cursor.fetchall()
+        
+        # Format the orders data
+        orders = []
+        for order in orders_data:
+            # Split concatenated strings into lists
+            product_ids = str(order['product_ids']).split(',') if order['product_ids'] else []
+            quantities = str(order['quantities']).split(',') if order['quantities'] else []
+            prices = str(order['prices']).split(',') if order['prices'] else []
+            names = str(order['product_names']).split(',') if order['product_names'] else []
+            images = str(order['image_urls']).split(',') if order['image_urls'] else []
+            
+            # Create items list
+            items = [
+                {
+                    'id': int(pid),
+                    'quantity': int(qty),
+                    'price': float(price),
+                    'name': name,
+                    'image_url': img
+                }
+                for pid, qty, price, name, img in zip(product_ids, quantities, prices, names, images)
+                if all([pid, qty, price, name, img])
+            ]
+            
+            # Format order data
+            orders.append({
+                'id': order['id'],
+                'total_amount': float(order['total_amount']),
+                'status': order['status'],
+                'created_at': order['created_at'].isoformat() if order['created_at'] else None,
+                'delivery_address': {
+                    'full_name': order['full_name'],
+                    'phone': order['phone'],
+                    'address': order['address'],
+                    'city': order['city'],
+                    'state': order['state'],
+                    'pincode': order['pincode']
+                },
+                'items': items
+            })
+        
+        cursor.close()
+        conn.close()
+        return jsonify(orders)
+        
+    except Exception as e:
+        print(f"Error fetching user orders: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
