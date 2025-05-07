@@ -4,6 +4,7 @@ import { getAuth } from 'firebase/auth';
 import { toast } from 'react-toastify';
 import '../styles/SharedBackground.css';
 
+
 const Cart = () => {
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -68,7 +69,7 @@ const Cart = () => {
       const userProfile = await profileResponse.json();
       const userId = userProfile.id;
 
-      const response = await fetch('http://127.0.0.1:5000/api/cart/remove', {
+      const response = await fetch(`http://127.0.0.1:5000/api/cart/remove`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

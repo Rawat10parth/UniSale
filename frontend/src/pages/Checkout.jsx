@@ -4,6 +4,7 @@ import { getAuth } from 'firebase/auth';
 import { toast } from 'react-toastify';
 import '../styles/SharedBackground.css';
 
+
 const Checkout = () => {
   const navigate = useNavigate();
   const auth = getAuth();
@@ -34,7 +35,7 @@ const Checkout = () => {
 
         // Get ID token for authentication
         const idToken = await user.getIdToken(true);
-        const response = await fetch('http://127.0.0.1:5000/get-profile', {
+        const response = await fetch(`http://127.0.0.1:5000/get-profile`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -77,43 +78,67 @@ const Checkout = () => {
     });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-
+  const handleCheckout = async () => {
     try {
       const user = auth.currentUser;
-      const idToken = await user.getIdToken();
-
-      // Check if user is logged in
       if (!user) {
         toast.error('Please login to place order');
         navigate('/login');
         return;
       }
 
-      // Validate form data
-      if (!formData.fullName || !formData.phone || !formData.address || 
-          !formData.city || !formData.state || !formData.pincode) {
-        toast.error('Please fill all required fields');
-        return;
+      // Get ID token for authentication
+      const idToken = await user.getIdToken();
+      
+      // First get user profile to get numeric ID
+      const profileResponse = await fetch(`http://localhost:5000/get-profile`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify({
+          email: user.email
+        })
+      });
+
+      if (!profileResponse.ok) {
+        throw new Error('Failed to get user profile');
       }
 
-      const response = await fetch('http://127.0.0.1:5000/api/checkout', {
+      const userProfile = await profileResponse.json();
+      
+      // Ensure userId is a number and within safe integer range
+      const userId = parseInt(userProfile.id);
+      if (isNaN(userId) || userId > Number.MAX_SAFE_INTEGER) {
+        throw new Error('Invalid user ID received from server');
+      }
+
+      const orderData = {
+        ...formData,
+        userId: userId // Send the parsed numeric ID
+      };
+
+      const response = await fetch(`http://localhost:5000/api/checkout`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${idToken}`
         },
-        body: JSON.stringify({
-          ...formData,
-          userId: user.uid
-        })
+        body: JSON.stringify(orderData)
       });
 
+      // Add detailed error logging
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to place order');
+        const errorText = await response.text();
+        console.error('Server response:', errorText);
+        try {
+          const errorData = JSON.parse(errorText);
+          throw new Error(errorData.error || 'Failed to place order');
+        } catch (e) {
+          console.error('Error parsing server response:', e);
+          throw new Error(`Server error: ${errorText}`);
+        }
       }
 
       const data = await response.json();
@@ -131,6 +156,12 @@ const Checkout = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    await handleCheckout();
   };
 
   if (loadingProfile) {

@@ -4,6 +4,7 @@ import { getAuth } from 'firebase/auth';
 import { toast } from 'react-toastify';
 import '../styles/SharedBackground.css';
 
+
 const Orders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,29 +16,29 @@ const Orders = () => {
       try {
         const user = auth.currentUser;
         if (!user) {
+          toast.error('Please login to view orders');
           navigate('/login');
           return;
         }
 
-        console.log('Fetching orders...'); // Debug log
-        const idToken = await user.getIdToken(true);
-        const response = await fetch('http://127.0.0.1:5000/api/orders', {
-          headers: {
-            'Authorization': `Bearer ${idToken}`
-          }
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to fetch orders');
+        // Get user profile to get numeric ID
+        const profileResponse = await fetch(`http://localhost:5000/get-profile?email=${user.email}`);
+        if (!profileResponse.ok) {
+          throw new Error('Failed to fetch user profile');
         }
-
+        const userProfile = await profileResponse.json();
+        
+        // Fetch orders with numeric user ID
+        const response = await fetch(`http://127.0.0.1:5000/api/orders/user/${userProfile.id}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch orders');
+        }
+        
         const data = await response.json();
-        console.log('Orders received:', data); // Debug log
         setOrders(data);
       } catch (error) {
         console.error('Error fetching orders:', error);
-        toast.error('Failed to load orders');
+        toast.error(error.message || 'Failed to load orders');
       } finally {
         setLoading(false);
       }

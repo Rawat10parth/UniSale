@@ -3,6 +3,7 @@ import { signInWithPopup, OAuthProvider } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
+
 const Signup = () => {
   const navigate = useNavigate();
 
@@ -33,7 +34,7 @@ const Signup = () => {
   
   const registerUserInDB = async (user) => {
     try {
-      const response = await fetch("http://127.0.0.1:5000/signup", {
+      const response = await fetch(`http://127.0.0.1:5000/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
