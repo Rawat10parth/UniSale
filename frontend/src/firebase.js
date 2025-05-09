@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, OAuthProvider } from "firebase/auth";
+import { getAuth } from "firebase/auth";
+import { initializeFirestore, persistentLocalCache, persistentSingleTabManager } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: "AIzaSyANra3YxMTaxwYHd06r_WolpPFEVIFyoys",
@@ -13,12 +14,13 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+const auth = getAuth(app);
 
-// Microsoft OAuth Provider
-export const microsoftProvider = new OAuthProvider("microsoft.com");
-
-// Force Microsoft to ask for email & password
-microsoftProvider.setCustomParameters({
-  prompt: "login",
+// Initialize Firestore with persistence
+const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentSingleTabManager()
+  })
 });
+
+export { app, auth, db };
