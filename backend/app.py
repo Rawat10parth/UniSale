@@ -52,28 +52,40 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "tactile-rigging-451008-a0-f0a39b
 # =================== MYSQL CONNECTION SETUP =================== #
 
 # Add Google Cloud SQL Configuration
-CLOUD_SQL_CONFIG = {
-    'host': '34.131.40.156',  # Your Cloud SQL instance IP
-    'user': 'root',           # Your Cloud SQL username
-    'password': 'parth@123',  # Your Cloud SQL password
-    'database': 'unisale',    # Your database name
-}
-#my ip 106.215.163.19
+# CLOUD_SQL_CONFIG = {
+#     'host': '34.131.110.57',  # Your Cloud SQL instance IP
+#     'user': 'root',           # Your Cloud SQL username
+#     'password': 'parth@123',  # Your Cloud SQL password
+#     'database': 'unisale',    # Your database name
+# }
+# #my ip 106.215.163.19
 
-# Update the database connection function
+# # Update the database connection function
+# def get_db_connection():
+#     try:
+#         connection = mysql.connector.connect(
+#             host=CLOUD_SQL_CONFIG['host'],
+#             user=CLOUD_SQL_CONFIG['user'],
+#             password=CLOUD_SQL_CONFIG['password'],
+#             database=CLOUD_SQL_CONFIG['database'],
+#         )
+#         return connection
+#     except mysql.connector.Error as err:
+#         print(f"Error connecting to Cloud SQL: {err}")
+#         raise
+
 def get_db_connection():
     try:
         connection = mysql.connector.connect(
-            host=CLOUD_SQL_CONFIG['host'],
-            user=CLOUD_SQL_CONFIG['user'],
-            password=CLOUD_SQL_CONFIG['password'],
-            database=CLOUD_SQL_CONFIG['database'],
+            host="localhost",
+            user="root",
+            password="",
+            database="unisale"
         )
         return connection
     except mysql.connector.Error as err:
-        print(f"Error connecting to Cloud SQL: {err}")
+        print(f"Error connecting to MySQL: {err}")
         raise
-
 
 # =================== FIREBASE AUTH SETUP =================== #
 
@@ -231,8 +243,13 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
+# db = mysql.connector.connect(
+#     host="34.131.110.57", user="root", password="parth@123", database="unisale"
+# )
+# cursor = db.cursor()
+
 db = mysql.connector.connect(
-    host="34.131.40.156", user="root", password="parth@123", database="unisale"
+    host="localhost", user="root", password="", database="unisale"
 )
 cursor = db.cursor()
 
@@ -427,14 +444,57 @@ def update_phone_number():
 @app.route("/get-products", methods=["GET"])
 def get_products():
     try:
+        search = request.args.get('search', '')
+        category = request.args.get('category', '')
+        condition = request.args.get('condition', '')
+        sort_order = request.args.get('sort', 'newest')
+
+        query = """
+            SELECT p.id, p.user_id, p.name, p.description, p.category, p.state, p.price, p.image_url 
+            FROM products p 
+            WHERE 1=1
+        """
+        params = []
+
+        # Add search condition
+        if search:
+            query += " AND (p.name LIKE %s OR p.description LIKE %s)"
+            params.extend([f'%{search}%', f'%{search}%'])
+
+        # Add category filter
+        if category and category != 'All':
+            query += " AND p.category = %s"
+            params.append(category)
+
+        # Add condition filter
+        if condition:
+            query += " AND p.state = %s"
+            params.append(condition)
+
+        # Add sorting
+        if sort_order == 'low-to-high':
+            query += " ORDER BY p.price ASC"
+        elif sort_order == 'high-to-low':
+            query += " ORDER BY p.price DESC"
+        else:  # newest
+            query += " ORDER BY p.created_at DESC"
+
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
-        # Include id so that products in the frontend have an identifier.
-        cursor.execute("SELECT id, user_id, name, description, category, state, price, image_url FROM products")
+        cursor.execute(query, params)
         products = cursor.fetchall()
+
+        # Convert decimal values to float for JSON serialization
+        for product in products:
+            if 'price' in product and product['price'] is not None:
+                product['price'] = float(product['price'])
+
         conn.close()
         return jsonify(products)
+
     except Exception as e:
+        print(f"Error fetching products: {e}")
+        traceback.print_exc()  # Print full stack trace for debugging
         return jsonify({"error": str(e)}), 500
 
 
