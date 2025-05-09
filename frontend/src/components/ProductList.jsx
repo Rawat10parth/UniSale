@@ -5,7 +5,6 @@ import { toast } from "react-toastify";
 import InfiniteScroll from "react-infinite-scroll-component";
 import ZoomableImage from "./ZoomableImage";
 
-
 const ProductList = ({ products, userId, fetchProducts }) => {
   const navigate = useNavigate();
   const [wishlistItems, setWishlistItems] = useState([]);
@@ -53,26 +52,21 @@ const ProductList = ({ products, userId, fetchProducts }) => {
     if (userId) fetchWishlist();
   }, [userId]);
 
-  // Fetch products
+  // Update the useEffect to show new products when they change
   useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const response = await fetch(`http://localhost:5000/get-products`);
-        const data = await response.json();
-        setDisplayedProducts(data.slice(0, ITEMS_PER_LOAD));
-        setHasMore(data.length > ITEMS_PER_LOAD);
-      } catch (error) {
-        console.error("❌ Error fetching products:", error);
-      }
-    };
-    fetchProducts();
-  }, []);
+    // Reset displayed products when the products array changes
+    setDisplayedProducts(products.slice(0, ITEMS_PER_LOAD));
+    setHasMore(products.length > ITEMS_PER_LOAD);
+  }, [products]);
 
+  // Update the fetchMoreData function to handle filtered data properly
   const fetchMoreData = () => {
     if (displayedProducts.length >= products.length) {
       setHasMore(false);
       return;
     }
+    
+    // Display next batch of products
     setTimeout(() => {
       setDisplayedProducts(products.slice(0, displayedProducts.length + ITEMS_PER_LOAD));
     }, 500);
